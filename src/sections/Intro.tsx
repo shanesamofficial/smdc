@@ -1,11 +1,15 @@
 import React from 'react';
+import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 
 // Placeholder doctor image; replace with your own asset in src/assets (e.g., doctor.jpg)
 const doctorImg = 'https://via.placeholder.com/720x520.png?text=Doctor+Image';
 
 const Intro: React.FC = () => {
+  const [ref, isInView] = useIntersectionObserver();
+
   return (
-    <section id="about" className="max-w-[1400px] mx-auto px-6 pt-8 pb-24">
+    <section ref={ref} id="about" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''}`}>
+      <div className="max-w-[1400px] mx-auto px-6 pt-8 pb-24">
       <div className="grid md:grid-cols-12 gap-12 items-start">
         {/* Image + badge */}
         <div className="md:col-span-6 relative">
@@ -41,10 +45,11 @@ const Intro: React.FC = () => {
         </div>
       </div>
 
-      {/* Why heading */}
-      <h2 className="mt-32 text-5xl md:text-6xl font-light tracking-tight">
-        Why <span className="italic font-semibold">Dr. Shawn's</span>:
-      </h2>
+        {/* Why heading */}
+        <h2 className="mt-32 text-5xl md:text-6xl font-light tracking-tight">
+          Why <span className="italic font-semibold">Dr. Shawn's</span>:
+        </h2>
+      </div>
     </section>
   );
 };

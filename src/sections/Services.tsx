@@ -1,4 +1,5 @@
 import React from 'react';
+import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 
 interface ServiceItem {
   title: string;
@@ -18,10 +19,12 @@ const services: ServiceItem[] = [
 ];
 
 const Services: React.FC = () => {
+  const [ref, isInView] = useIntersectionObserver();
+
   return (
-    <section id="services" className="relative bg-black text-white py-20 overflow-hidden">
+    <section ref={ref} id="services" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} relative bg-black text-white py-20 overflow-hidden`}>
       <div className="max-w-[1200px] mx-auto px-6">
-        <div className="grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center">
+        <div className={`stagger-animation ${isInView ? 'in-view' : ''} grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center`}>
           {/* Row 1: Cleaning, Aligners (tall), Extraction */}
           <div className="relative group w-[200px]">
             <div className="rounded-2xl overflow-hidden bg-gray-700 aspect-[3/2] flex items-center justify-center">
