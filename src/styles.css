@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom utilities */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Fullscreen sections with smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+.fullscreen-section {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  scroll-snap-align: start;
+}
+
+.scroll-container {
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  height: 100vh;
+}
+
+/* Card transition effects */
+.section-card {
+  transform: translateY(50px);
+  opacity: 0;
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section-card.in-view {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Staggered animation for child elements */
+.stagger-animation > * {
+  transform: translateY(30px);
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stagger-animation.in-view > *:nth-child(1) { transition-delay: 0.1s; }
+.stagger-animation.in-view > *:nth-child(2) { transition-delay: 0.2s; }
+.stagger-animation.in-view > *:nth-child(3) { transition-delay: 0.3s; }
+.stagger-animation.in-view > *:nth-child(4) { transition-delay: 0.4s; }
+.stagger-animation.in-view > *:nth-child(5) { transition-delay: 0.5s; }
+.stagger-animation.in-view > *:nth-child(6) { transition-delay: 0.6s; }
+.stagger-animation.in-view > *:nth-child(7) { transition-delay: 0.7s; }
+.stagger-animation.in-view > *:nth-child(8) { transition-delay: 0.8s; }
+
+.stagger-animation.in-view > * {
+  transform: translateY(0);
+  opacity: 1;
+}
