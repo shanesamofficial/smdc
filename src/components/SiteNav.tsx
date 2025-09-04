@@ -1,0 +1,120 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { NavLink } from 'react-router-dom';
+import { Menu, X, Home, Info, Images, Layers, Phone, ChevronRight } from 'lucide-react';
+import { motion } from 'motion/react';
+
+interface NavItem { to:string; label:string; icon: React.ComponentType<{className?:string}> }
+const navItems: NavItem[] = [
+  { to: '/', label: 'Home', icon: Home },
+  { to: '/about', label: 'About', icon: Info },
+  { to: '/portfolio', label: 'Portfolio', icon: Images },
+  { to: '/services', label: 'Services', icon: Layers },
+  { to: '/contact', label: 'Contact', icon: Phone },
+];
+
+const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const firstLinkRef = useRef<HTMLAnchorElement | null>(null);
+
+  const closeMenu = useCallback(()=>{
+    setClosing(true);
+    setTimeout(()=>{ setOpen(false); setClosing(false); }, 180);
+  }, []);
+
+  // Body scroll lock
+  useEffect(()=>{
+    if(open){
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
+
+  // Focus first link when opened
+  useEffect(()=>{
+    if(open && firstLinkRef.current){
+      setTimeout(()=>firstLinkRef.current?.focus(), 60);
+    }
+  }, [open]);
+
+  // ESC to close
+  useEffect(()=>{
+    if(!open) return;
+    const handler = (e:KeyboardEvent)=>{ if(e.key==='Escape') closeMenu(); };
+    window.addEventListener('keydown', handler);
+    return ()=> window.removeEventListener('keydown', handler);
+  }, [open, closeMenu]);
+
+  const linkBase = 'px-2 py-1 rounded transition-colors';
+  const renderLinks = (onClick?:()=>void)=>(
+    navItems.map(item=> (
+      <NavLink key={item.to} to={item.to} end={item.to==='/' } onClick={()=>{ onClick?.(); setOpen(false); }} className={({isActive})=>`${linkBase} ${isActive? 'text-brand-green font-semibold' : 'text-gray-600 hover:text-brand-green'}`}>{item.label}</NavLink>
+    ))
+  );
+
+  return (
+    <>
+  <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center gap-6 bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-[100]`}>      
+        <div className="flex items-center gap-4">
+          <button className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md border border-gray-300 hover:bg-gray-100" onClick={()=>setOpen(true)} aria-label="Open menu">
+            <Menu className="w-5 h-5" />
+          </button>
+          <NavLink to="/" className="text-lg font-semibold italic text-brand-dark">Dr. Shawn's</NavLink>
+        </div>
+        <nav className="ml-auto hidden md:flex items-center gap-4 md:gap-6 text-sm font-medium">
+          {renderLinks()}
+        </nav>
+      </header>
+      {/* Mobile Popup Menu */}
+      {open && (
+        <div className="fixed inset-0 z-50 md:hidden flex items-center justify-center px-4">
+          <button aria-label="Close menu" onClick={closeMenu} className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={ closing ? { opacity:0, scale:0.9, y:20, transition:{ duration:0.18 } } : { opacity:1, scale:1, y:0, transition:{ type:'spring', stiffness:260, damping:22 } }}
+            className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 flex flex-col gap-6 overflow-hidden"
+          >
+            <div className="flex items-center justify-between">
+              <NavLink to="/" className="text-lg font-semibold italic text-brand-dark" onClick={closeMenu}>Dr. Shawn's</NavLink>
+              <button className="w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-300 hover:bg-gray-100" onClick={closeMenu} aria-label="Close menu">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2" aria-label="Mobile navigation">
+              {navItems.map((item, idx)=>{
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to==='/' }
+                    ref={idx===0? firstLinkRef : undefined}
+                    onClick={closeMenu}
+                    className={({isActive})=>`group relative flex items-center gap-4 px-4 py-3 rounded-xl border border-transparent ${isActive? 'bg-brand-green/10 text-brand-green font-semibold border-brand-green/30' : 'hover:bg-gray-50 text-gray-700'} transition`}
+                  >
+                    <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-100 group-hover:bg-white shadow-inner">
+                      <Icon className="w-5 h-5" />
+                    </span>
+                    <span className="text-sm tracking-wide flex-1">{item.label}</span>
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-green transition" />
+                  </NavLink>
+                );
+              })}
+            </div>
+            <div className="pt-4 mt-auto text-[11px] tracking-wide text-gray-400 flex items-center justify-between border-t border-gray-200">
+              <span>© {new Date().getFullYear()} Dr. Shawn's</span>
+              <span className="font-medium text-gray-500">Smile Care</span>
+            </div>
+            {/* Decorative gradient */}
+            <div className="pointer-events-none absolute -top-24 -right-24 w-64 h-64 rounded-full bg-gradient-to-br from-brand-green/20 to-transparent blur-3xl" />
+          </motion.div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default SiteNav;

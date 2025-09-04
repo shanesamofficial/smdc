@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, LogOut } from 'lucide-react';
+import { Plus, LogOut, Moon, Sun } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ManagerDashboard: React.FC = () => {
@@ -25,15 +25,19 @@ const ManagerDashboard: React.FC = () => {
     }
   };
 
+  const [dark, setDark] = useState(false);
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-8 py-4 flex items-center gap-6">
+    <div className={dark ? 'min-h-screen bg-[#0f1517] text-gray-100' : 'min-h-screen bg-gray-50 text-gray-900'}>
+      <header className={dark ? 'bg-[#121c1f] border-b border-gray-700 px-8 py-4 flex items-center gap-6' : 'bg-white border-b px-8 py-4 flex items-center gap-6'}>
         <h1 className="text-xl font-semibold flex-1">Manager Dashboard</h1>
+        <button onClick={()=>setDark(d=>!d)} className={dark? 'w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-600 text-gray-200 hover:bg-gray-700' : 'w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100'} aria-label="Toggle dashboard dark mode">
+          {dark? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
         <Link to="/" className="text-sm text-brand-green font-medium">Site</Link>
         <button onClick={logout} className="flex items-center gap-2 text-sm font-medium text-red-600 hover:underline"><LogOut className="w-4 h-4"/>Logout</button>
       </header>
       <main className="max-w-6xl mx-auto p-8 grid md:grid-cols-3 gap-10">
-        <section className="md:col-span-1 bg-white rounded-xl shadow-sm border p-6">
+        <section className={dark ? 'md:col-span-1 bg-[#121c1f] rounded-xl shadow-sm border border-gray-700 p-6' : 'md:col-span-1 bg-white rounded-xl shadow-sm border p-6'}>
           <h2 className="font-semibold mb-4 flex items-center gap-2"><Plus className="w-4 h-4"/>Create Patient</h2>
           <form onSubmit={submit} className="space-y-4">
             <div>
@@ -49,7 +53,7 @@ const ManagerDashboard: React.FC = () => {
             {success && <p className="text-xs text-green-600">{success}</p>}
           </form>
         </section>
-        <section className="md:col-span-2 bg-white rounded-xl shadow-sm border p-6 overflow-hidden">
+  <section className={dark ? 'md:col-span-2 bg-[#121c1f] rounded-xl shadow-sm border border-gray-700 p-6 overflow-hidden' : 'md:col-span-2 bg-white rounded-xl shadow-sm border p-6 overflow-hidden'}>
           <h2 className="font-semibold mb-4">Patients</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

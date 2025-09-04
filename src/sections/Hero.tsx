@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import BlurText from '../components/BlurText';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 import AuthModal from '../components/AuthModal';
 
@@ -26,48 +27,21 @@ const Hero: React.FC = () => {
       className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} bg-white md:bg-transparent md:pt-0`}
     >
       <div className="max-w-[1400px] mx-auto w-full h-full flex flex-col md:block px-4 sm:px-6 pt-4 md:pt-8 pb-8 md:pb-16">
-        {/* Top Nav / Mobile */}
-        <nav className="flex items-center w-full mb-6">
-          <span className="text-lg font-semibold italic text-white md:text-brand-dark">Dr. Shawn's</span>
-          <a
-            href="#about"
-            className="hidden md:inline-block text-sm tracking-wide font-medium text-gray-300 md:text-gray-700 hover:text-brand-green transition-colors ml-8"
-          >
-            ABOUT
-          </a>
-          <div className="ml-auto flex items-center gap-2 md:gap-3">
-            <button
-              onClick={() => openAuth('login')}
-              className="hidden md:inline-block text-xs font-semibold tracking-wide px-5 py-2 rounded-full border border-gray-300 hover:border-brand-green hover:text-brand-green transition"
-            >
-              LOGIN
-            </button>
-            <button
-              onClick={() => openAuth('signup')}
-              className="hidden md:inline-block text-xs font-semibold tracking-wide px-5 py-2 rounded-full bg-brand-green text-white hover:opacity-90 transition shadow-card"
-            >
-              SIGN UP
-            </button>
-            {/* Mobile menu placeholder */}
-            <button
-              className="md:hidden w-10 h-10 inline-flex items-center justify-center rounded-md bg-brand-green text-white font-bold"
-              aria-label="Menu"
-            >
-              <span className="sr-only">Menu</span>
-              ☰
-            </button>
-          </div>
-        </nav>
+  {/* (Global SiteNav is rendered above; internal hero nav removed) */}
 
         {/* Content Grid Desktop / Flex Mobile */}
         <div className="flex flex-col gap-6 md:grid md:grid-cols-12 md:gap-10 flex-1">
           {/* Left content (heading + CTA) */}
             <div className="order-1 md:order-none md:col-span-5 flex flex-col gap-6 md:gap-8 text-white md:text-black">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl leading-[1.05] font-extrabold tracking-tight">
-              <span className="block">SMILE</span>
-              <span className="block text-brand-green">BRIGHTER</span>
-              <span className="block">WITH US</span>
-            </h1>
+            <div className="text-4xl sm:text-5xl md:text-6xl leading-[1.05] font-extrabold tracking-tight">
+              <BlurText
+                text="SMILE BRIGHTER WITH US"
+                delay={120}
+                animateBy="words"
+                direction="top"
+                className="flex flex-wrap gap-x-3"
+              />
+            </div>
             <div className="flex flex-wrap gap-4 items-center">
               <a
                 href="#book"
@@ -222,8 +196,8 @@ const Hero: React.FC = () => {
         onClose={() => setAuthOpen(false)}
         onSwitch={(m) => setAuthMode(m)}
       />
-      {/* Background overlay for mobile dark theme */}
-      <div className="absolute inset-0 bg-black md:bg-transparent -z-10" aria-hidden="true" />
+    {/* Background overlay */}
+  <div className="absolute inset-0 bg-black md:bg-transparent -z-10" aria-hidden="true" />
     </header>
   );
 };

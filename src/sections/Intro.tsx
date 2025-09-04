@@ -1,4 +1,5 @@
 import React from 'react';
+import BlurText from '../components/BlurText';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 
 // Local doctor illustration asset (replace with real photo later if desired)
@@ -46,9 +47,15 @@ const Intro: React.FC = () => {
       </div>
 
         {/* Why heading */}
-        <h2 className="mt-32 text-5xl md:text-6xl font-light tracking-tight">
-          Why <span className="italic font-semibold">Dr. Shawn's</span>:
-        </h2>
+        <div className="mt-32 text-5xl md:text-6xl font-light tracking-tight">
+          <BlurText
+            text="Why Dr. Shawn's:"
+            delay={120}
+            animateBy="words"
+            direction="bottom"
+            className="inline-flex flex-wrap"
+          />
+        </div>
       </div>
     </section>
   );

@@ -11,6 +11,22 @@ html {
   scroll-behavior: smooth;
 }
 
+body.dark {
+  background-color: #0d1c1c;
+}
+
+.dark body { background-color:#021b1f; }
+
+.dark .section-card { background: transparent; }
+
+.dark .shadow-card { --tw-shadow-color: rgba(0,0,0,0.6); }
+
+/* Mobile drawer */
+.drawer-enter { transform: translateX(100%); }
+.drawer-enter-active { transform: translateX(0); transition: transform .35s cubic-bezier(.4,0,.2,1); }
+.drawer-exit { transform: translateX(0); }
+.drawer-exit-active { transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1); }
+
 .fullscreen-section {
   min-height: 100vh;
   display: flex;
@@ -24,6 +40,7 @@ html {
   scroll-snap-type: y mandatory;
   overflow-y: scroll;
   height: 100vh;
+  padding-top: 0; /* hero compensates with own spacing */
 }
 
 /* Card transition effects */

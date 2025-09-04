@@ -1,4 +1,5 @@
 import React from 'react';
+import BlurText from '../components/BlurText';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 
 interface ServiceItem {
@@ -23,7 +24,7 @@ const Services: React.FC = () => {
   const [ref, isInView] = useIntersectionObserver();
 
   return (
-    <section ref={ref} id="services" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} relative bg-black text-white py-20 overflow-hidden`}>
+  <section ref={ref} id="services" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} relative bg-black text-white py-20 overflow-hidden`}>
       <div className="max-w-[1200px] mx-auto px-6">
         <div className={`stagger-animation ${isInView ? 'in-view' : ''} grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center`}>
           {/* Row 1: Cleaning, Aligners (tall), Extraction */}
@@ -110,9 +111,15 @@ const Services: React.FC = () => {
       </div>
       {/* Vertical side heading */}
       <div className="absolute top-1/2 -translate-y-1/2 right-8 xl:right-16">
-        <h2 className="text-5xl xl:text-6xl font-extrabold tracking-tight origin-center rotate-90 whitespace-nowrap">
-          <span className="text-brand-green">OUR SERVICES</span>
-        </h2>
+        <div className="text-5xl xl:text-6xl font-extrabold tracking-tight origin-center rotate-90 whitespace-nowrap">
+          <BlurText
+            text="OUR SERVICES"
+            delay={90}
+            animateBy="words"
+            direction="top"
+            className="text-brand-green"
+          />
+        </div>
       </div>
     </section>
   );

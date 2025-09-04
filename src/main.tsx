@@ -9,23 +9,34 @@ import { AuthProvider } from './context/AuthContext';
 import ManagerDashboard from './pages/ManagerDashboard';
 import MemberHome from './pages/MemberHome';
 import PatientRecord from './pages/PatientRecord';
+import Contact from './pages/Contact';
+import About from './pages/About';
+import Portfolio from './pages/Portfolio';
+import SiteNav from './components/SiteNav';
 
 const Landing: React.FC = () => (
-  <div className="scroll-container">
-    <Hero />
-    <Intro />
-    <Services />
-  </div>
+  <>
+    <SiteNav />
+    <div className="scroll-container">
+      <Hero />
+      <Intro />
+      <Services />
+    </div>
+  </>
 );
 
 const App: React.FC = () => (
   <AuthProvider>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/manager" element={<ManagerDashboard />} />
-        <Route path="/member" element={<MemberHome />} />
-        <Route path="/patient/:id" element={<PatientRecord />} />
+  <Route path="/" element={<Landing />} />
+  <Route path="/manager" element={<ManagerDashboard />} />
+  <Route path="/member" element={<MemberHome />} />
+  <Route path="/patient/:id" element={<PatientRecord />} />
+  <Route path="/contact" element={<Contact />} />
+  <Route path="/about" element={<About />} />
+  <Route path="/portfolio" element={<Portfolio />} />
+  <Route path="/services" element={<Services />} />
       </Routes>
     </BrowserRouter>
   </AuthProvider>
