@@ -15,7 +15,7 @@ const Portfolio: React.FC = () => {
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="flex-1 w-full max-w-6xl mx-auto px-6 md:px-10 py-14">
+      <section className="flex-1 w-full max-w-6xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-14">
         <div className="text-4xl font-extrabold tracking-tight mb-10">
           <BlurText text="Portfolio" delay={90} animateBy="chars" direction="top" />
         </div>

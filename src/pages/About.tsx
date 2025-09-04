@@ -29,7 +29,7 @@ const About: React.FC = () => {
   return (
   <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="flex-1 w-full max-w-7xl mx-auto px-6 md:px-10 py-16 space-y-24">
+      <section className="flex-1 w-full max-w-7xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-16 space-y-24">
   {/* Our Story */}
         <div className="space-y-8">
           <div className="text-4xl md:text-5xl font-extrabold tracking-tight">

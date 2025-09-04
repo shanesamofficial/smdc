@@ -22,7 +22,7 @@ const ServicesPage: React.FC = () => {
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="w-full max-w-7xl mx-auto px-6 md:px-10 pt-14 pb-8 md:pb-20 flex flex-col gap-14">
+      <section className="w-full max-w-7xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-8 md:pb-20 flex flex-col gap-14">
         <header className="space-y-6">
           <div className="text-4xl md:text-5xl font-extrabold tracking-tight">
             <BlurText text="Our Services" delay={70} animateBy="words" direction="top" />
