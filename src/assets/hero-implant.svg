@@ -1,0 +1,14 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='800' height='1000' viewBox='0 0 800 1000'>
+  <defs>
+    <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#0fa' />
+      <stop offset='100%' stop-color='#026d4f' />
+    </linearGradient>
+  </defs>
+  <rect width='800' height='1000' fill='url(#g)'/>
+  <g fill='none' stroke='#fff' stroke-width='10' stroke-linecap='round'>
+    <path d='M400 240c55 0 100 45 100 100v140c0 55-45 100-100 100s-100-45-100-100V340c0-55 45-100 100-100z'/>
+    <path d='M360 640h80M350 690h100M340 740h120M330 790h140' />
+  </g>
+  <text x='50%' y='180' font-family='Inter,Arial' font-size='72' fill='#fff' font-weight='700' text-anchor='middle'>IMPLANT</text>
+</svg>

@@ -1,8 +1,8 @@
 import React from 'react';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 
-// Placeholder doctor image; replace with your own asset in src/assets (e.g., doctor.jpg)
-const doctorImg = 'https://via.placeholder.com/720x520.png?text=Doctor+Image';
+// Local doctor illustration asset (replace with real photo later if desired)
+import doctorImg from '../assets/doctor.svg';
 
 const Intro: React.FC = () => {
   const [ref, isInView] = useIntersectionObserver();

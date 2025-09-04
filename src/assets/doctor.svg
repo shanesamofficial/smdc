@@ -1,0 +1,15 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='720' height='520' viewBox='0 0 720 520'>
+<defs>
+  <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+    <stop offset='0%' stop-color='#d9f4ee'/>
+    <stop offset='100%' stop-color='#9dc9bd'/>
+  </linearGradient>
+</defs>
+<rect width='720' height='520' rx='40' fill='url(#bg)'/>
+<g stroke='#003a42' stroke-width='6' fill='none' stroke-linecap='round'>
+  <circle cx='360' cy='210' r='90'/>
+  <path d='M260 430c25-110 215-110 240 0'/>
+  <path d='M330 310c0 40 60 40 60 0'/>
+</g>
+<text x='50%' y='480' text-anchor='middle' font-family='Inter,Arial' font-size='42' font-weight='700' fill='#02B784'>CARE</text>
+</svg>

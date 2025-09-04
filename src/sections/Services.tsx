@@ -6,16 +6,17 @@ interface ServiceItem {
   image: string;
 }
 
-// Placeholder images for services – replace with local assets when available.
+// Local illustration (using one asset for all until individual ones are provided)
+import heroImplant from '../assets/hero-implant.svg';
 const services: ServiceItem[] = [
-  { title: 'CLEANING', image: 'https://via.placeholder.com/240x160.png?text=Cleaning' },
-  { title: 'ALIGNERS', image: 'https://via.placeholder.com/240x340.png?text=Aligners' },
-  { title: 'EXTRACTION', image: 'https://via.placeholder.com/240x160.png?text=Extraction' },
-  { title: 'IMPLANT', image: 'https://via.placeholder.com/240x240.png?text=Implant' },
-  { title: 'DENTURES', image: 'https://via.placeholder.com/240x240.png?text=Dentures' },
-  { title: 'VENEERS', image: 'https://via.placeholder.com/240x240.png?text=Veneers' },
-  { title: 'ORTHODONTICS', image: 'https://via.placeholder.com/240x240.png?text=Ortho' },
-  { title: 'CHILD CARE', image: 'https://via.placeholder.com/240x240.png?text=Child+Care' },
+  { title: 'CLEANING', image: heroImplant },
+  { title: 'ALIGNERS', image: heroImplant },
+  { title: 'EXTRACTION', image: heroImplant },
+  { title: 'IMPLANT', image: heroImplant },
+  { title: 'DENTURES', image: heroImplant },
+  { title: 'VENEERS', image: heroImplant },
+  { title: 'ORTHODONTICS', image: heroImplant },
+  { title: 'CHILD CARE', image: heroImplant },
 ];
 
 const Services: React.FC = () => {
