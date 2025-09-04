@@ -1,6 +1,7 @@
 import React from 'react';
 import BlurText from '../components/BlurText';
 import SiteNav from '../components/SiteNav';
+import Footer from '../components/Footer';
 
 interface CaseItem { id:number; title:string; description:string; image:string; }
 const cases: CaseItem[] = Array.from({length:6}).map((_,i)=>({
@@ -33,7 +34,7 @@ const Portfolio: React.FC = () => {
           ))}
         </div>
       </section>
-      <footer className="py-6 text-center text-xs text-gray-500">© {new Date().getFullYear()} Dr. Shawn's. All rights reserved.</footer>
+  <Footer />
     </main>
   );
 };

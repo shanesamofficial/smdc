@@ -24,9 +24,10 @@ const Services: React.FC = () => {
   const [ref, isInView] = useIntersectionObserver();
 
   return (
-  <section ref={ref} id="services" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} relative bg-black text-white py-20 overflow-hidden`}>
+  <section ref={ref} id="services" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} relative bg-white text-brand-dark py-20 overflow-hidden`}>
       <div className="max-w-[1200px] mx-auto px-6">
-        <div className={`stagger-animation ${isInView ? 'in-view' : ''} grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center`}>
+        {/* Desktop / tablet complex grid */}
+        <div className={`stagger-animation ${isInView ? 'in-view' : ''} hidden md:grid grid-cols-3 gap-x-8 gap-y-12 justify-items-center`}>
           {/* Row 1: Cleaning, Aligners (tall), Extraction */}
           <div className="relative group w-[200px]">
             <div className="rounded-2xl overflow-hidden bg-gray-700 aspect-[3/2] flex items-center justify-center">
@@ -102,7 +103,33 @@ const Services: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex justify-center mt-16">
+
+        {/* Mobile title */}
+        <div className="md:hidden mb-10 text-center">
+          <div className="text-3xl font-extrabold tracking-tight">
+            <BlurText
+              text="Our Services"
+              delay={70}
+              animateBy="words"
+              direction="top"
+              className="inline-flex"
+            />
+          </div>
+        </div>
+        {/* Mobile simplified vertical list */}
+        <div className={`md:hidden flex flex-col items-center gap-8 ${isInView ? 'in-view' : ''}`}>
+          {services.map(s => (
+            <div key={s.title} className="w-full max-w-[320px] rounded-2xl border border-gray-200 shadow-sm bg-white overflow-hidden flex flex-col items-center p-6">
+              <div className="w-full aspect-square rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden mb-5">
+                <img src={s.image} alt={s.title} className="w-3/4 h-3/4 object-contain" />
+              </div>
+              <h3 className="text-sm font-semibold tracking-wide text-brand-dark">{s.title}</h3>
+            </div>
+          ))}
+          <a href="#more-services" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand-green">View All Services →</a>
+        </div>
+        {/* Desktop CTA */}
+        <div className="hidden md:flex justify-center mt-16">
           <a href="#more-services" className="group inline-flex items-center gap-3 bg-brand-green text-white font-medium text-sm rounded-full pl-8 pr-10 py-4 shadow-card hover:shadow-lg transition-shadow">
             <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-brand-green group-hover:translate-y-[-2px] transition-transform">→</span>
             Know More
@@ -110,7 +137,7 @@ const Services: React.FC = () => {
         </div>
       </div>
       {/* Vertical side heading */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-8 xl:right-16">
+      <div className="hidden md:block absolute top-1/2 -translate-y-1/2 right-8 xl:right-16">
         <div className="text-5xl xl:text-6xl font-extrabold tracking-tight origin-center rotate-90 whitespace-nowrap">
           <BlurText
             text="OUR SERVICES"

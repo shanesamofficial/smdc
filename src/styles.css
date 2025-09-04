@@ -37,10 +37,8 @@ body.dark {
 }
 
 .scroll-container {
-  scroll-snap-type: y mandatory;
-  overflow-y: scroll;
-  height: 100vh;
-  padding-top: 0; /* hero compensates with own spacing */
+  /* Removed internal scroll & snap to allow full-page scroll including footer */
+  padding-top: 0;
 }
 
 /* Card transition effects */

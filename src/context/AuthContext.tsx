@@ -7,6 +7,20 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  age?: number;
+  gender?: string;
+  mobile?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  allergies?: string;
+  medicalConditions?: string;
+  medications?: string;
+  notes?: string;
 }
 
 interface AuthContextValue {
@@ -15,7 +29,11 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (data: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
-  createPatient: (data: { name: string; email: string }) => Promise<User>;
+  createPatient: (data: {
+    name: string; email: string; age?: number; gender?: string; mobile?: string;
+    addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string;
+    emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string;
+  }) => Promise<User>;
   patients: User[];
 }
 
@@ -86,11 +104,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem(LS_CURRENT);
   };
 
-  const createPatient = async ({ name, email }: { name: string; email: string }) => {
-    if (user?.role !== 'manager') throw new Error('Not authorized');
+  const createPatient = async ({ name, email, age, gender, mobile, addressLine1, addressLine2, city, state, postalCode, emergencyContactName, emergencyContactPhone, allergies, medicalConditions, medications, notes }: {
+    name: string; email: string; age?: number; gender?: string; mobile?: string;
+    addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string;
+    emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string;
+  }) => {
+  // Temporarily allow anyone to create a patient (auth relaxed)
     const exists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
     if (exists) throw new Error('Email already used');
-    const newUser: User = { id: crypto.randomUUID(), name, email, role: 'patient' };
+    const newUser: User = { id: crypto.randomUUID(), name, email, role: 'patient', age, gender, mobile,
+      addressLine1, addressLine2, city, state, postalCode,
+      emergencyContactName, emergencyContactPhone, allergies, medicalConditions, medications, notes };
     const next = [...users, newUser];
     persistUsers(next);
     return newUser;

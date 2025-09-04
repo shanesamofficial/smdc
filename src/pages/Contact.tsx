@@ -2,6 +2,7 @@ import React from 'react';
 import BlurText from '../components/BlurText';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import SiteNav from '../components/SiteNav';
+import Footer from '../components/Footer';
 
 const Contact: React.FC = () => {
   return (
@@ -32,7 +33,7 @@ const Contact: React.FC = () => {
           ></iframe>
         </div>
       </section>
-      <footer className="py-6 text-center text-xs text-gray-500">© {new Date().getFullYear()} Dr. Shawn's. All rights reserved.</footer>
+  <Footer />
     </main>
   );
 };

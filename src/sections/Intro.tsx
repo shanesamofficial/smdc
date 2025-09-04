@@ -11,6 +11,16 @@ const Intro: React.FC = () => {
   return (
     <section ref={ref} id="about" className={`fullscreen-section section-card ${isInView ? 'in-view' : ''}`}>
       <div className="max-w-[1400px] mx-auto px-6 pt-8 pb-24">
+      {/* Mobile heading at top */}
+      <div className="md:hidden mb-10 text-4xl font-light tracking-tight">
+        <BlurText
+          text="Why Dr. Shawn's:"
+          delay={80}
+          animateBy="words"
+          direction="top"
+          className="inline-flex flex-wrap"
+        />
+      </div>
       <div className="grid md:grid-cols-12 gap-12 items-start">
         {/* Image + badge */}
         <div className="md:col-span-6 relative">
@@ -46,8 +56,8 @@ const Intro: React.FC = () => {
         </div>
       </div>
 
-        {/* Why heading */}
-        <div className="mt-32 text-5xl md:text-6xl font-light tracking-tight">
+        {/* Desktop heading lower in section */}
+        <div className="hidden md:block mt-32 text-5xl md:text-6xl font-light tracking-tight">
           <BlurText
             text="Why Dr. Shawn's:"
             delay={120}

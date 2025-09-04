@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Menu, X, Home, Info, Images, Layers, Phone, ChevronRight } from 'lucide-react';
+import { Menu, X, Home, Info, Images, Layers, Phone, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface NavItem { to:string; label:string; icon: React.ComponentType<{className?:string}> }
 const navItems: NavItem[] = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/about', label: 'About', icon: Info },
-  { to: '/portfolio', label: 'Portfolio', icon: Images },
   { to: '/services', label: 'Services', icon: Layers },
+  { to: '/portfolio', label: 'Portfolio', icon: Images },
   { to: '/contact', label: 'Contact', icon: Phone },
+  { to: '/doctor', label: 'Doctor', icon: LayoutDashboard },
 ];
 
 const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
@@ -55,16 +56,14 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
 
   return (
     <>
-  <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center gap-6 bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-[100]`}>      
-        <div className="flex items-center gap-4">
-          <button className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md border border-gray-300 hover:bg-gray-100" onClick={()=>setOpen(true)} aria-label="Open menu">
-            <Menu className="w-5 h-5" />
-          </button>
-          <NavLink to="/" className="text-lg font-semibold italic text-brand-dark">Dr. Shawn's</NavLink>
-        </div>
-        <nav className="ml-auto hidden md:flex items-center gap-4 md:gap-6 text-sm font-medium">
+  <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center bg-white/90 backdrop-blur-md sticky top-0 z-[100]`}>      
+        <NavLink to="/" className="text-lg font-semibold italic text-brand-dark">Dr. Shawn's</NavLink>
+        <nav className="ml-8 hidden md:flex items-center gap-6 text-sm font-medium">
           {renderLinks()}
         </nav>
+        <button className="md:hidden ml-auto inline-flex items-center justify-center w-10 h-10 rounded-md border border-gray-300 hover:bg-gray-100" onClick={()=>setOpen(true)} aria-label="Open menu">
+          <Menu className="w-5 h-5" />
+        </button>
       </header>
       {/* Mobile Popup Menu */}
       {open && (

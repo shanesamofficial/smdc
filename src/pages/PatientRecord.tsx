@@ -1,4 +1,5 @@
 import React from 'react';
+import Footer from '../components/Footer';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,15 +33,57 @@ const PatientRecord: React.FC = () => {
   if (!patient) return <div className="p-8">Patient not found.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+  <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b px-8 py-4 flex items-center gap-6">
         <h1 className="text-lg font-semibold flex-1">Patient Record</h1>
-        <Link to={user.role === 'manager' ? '/manager' : '/member'} className="text-sm text-brand-green font-medium">Back</Link>
+  <Link to={user.role === 'manager' ? '/doctor' : '/member'} className="text-sm text-brand-green font-medium">Back</Link>
       </header>
-      <main className="max-w-4xl mx-auto p-8 space-y-8">
+  <main className="flex-1 max-w-4xl mx-auto p-8 space-y-8">
         <div className="bg-white rounded-xl p-6 border shadow-sm">
           <h2 className="text-xl font-semibold mb-2">{patient.name}</h2>
-          <p className="text-sm text-gray-600">{patient.email}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">EMAIL</p>
+              <p>{patient.email}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">AGE</p>
+              <p>{patient.age ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">GENDER</p>
+              <p className="capitalize">{patient.gender ? (patient.gender === 'prefer_not' ? '—' : patient.gender) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">MOBILE</p>
+              <p>{patient.mobile || '—'}</p>
+            </div>
+            <div className="md:col-span-2">
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">ADDRESS</p>
+              <p>{patient.addressLine1 || '—'}{patient.addressLine2 ? `, ${patient.addressLine2}`: ''}</p>
+              <p>{patient.city || '—'} {patient.state || ''} {patient.postalCode || ''}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">EMERGENCY CONTACT</p>
+              <p className="text-xs">{patient.emergencyContactName ? `${patient.emergencyContactName} (${patient.emergencyContactPhone||'—'})` : '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">ALLERGIES</p>
+              <p className="text-xs whitespace-pre-wrap">{patient.allergies || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">CONDITIONS</p>
+              <p className="text-xs whitespace-pre-wrap">{patient.medicalConditions || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">MEDICATIONS</p>
+              <p className="text-xs whitespace-pre-wrap">{patient.medications || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-gray-500">NOTES</p>
+              <p className="text-xs whitespace-pre-wrap">{patient.notes || '—'}</p>
+            </div>
+          </div>
           <p className="mt-4 text-sm italic text-gray-500">(Demo data only - integrate real medical records securely.)</p>
         </div>
         <section className="bg-white rounded-xl p-6 border shadow-sm">
@@ -59,6 +102,7 @@ const PatientRecord: React.FC = () => {
           </ul>
         </section>
       </main>
+      <Footer />
     </div>
   );
 };

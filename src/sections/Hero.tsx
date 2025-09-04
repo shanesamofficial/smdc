@@ -32,7 +32,7 @@ const Hero: React.FC = () => {
         {/* Content Grid Desktop / Flex Mobile */}
         <div className="flex flex-col gap-6 md:grid md:grid-cols-12 md:gap-10 flex-1">
           {/* Left content (heading + CTA) */}
-            <div className="order-1 md:order-none md:col-span-5 flex flex-col gap-6 md:gap-8 text-white md:text-black">
+            <div className="order-1 md:order-none md:col-span-5 flex flex-col gap-6 md:gap-8 text-brand-dark">
             <div className="text-4xl sm:text-5xl md:text-6xl leading-[1.05] font-extrabold tracking-tight">
               <BlurText
                 text="SMILE BRIGHTER WITH US"
@@ -44,7 +44,7 @@ const Hero: React.FC = () => {
             </div>
             <div className="flex flex-wrap gap-4 items-center">
               <a
-                href="#book"
+                href="/booking"
                 className="group inline-flex items-center gap-3 bg-brand-green text-white font-semibold text-base md:text-lg rounded-full pl-6 pr-8 md:pl-8 md:pr-10 py-4 md:py-5 shadow-card hover:shadow-lg transition-shadow"
               >
                 <span className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white flex items-center justify-center text-brand-green group-hover:translate-y-[-2px] transition-transform">
@@ -196,8 +196,7 @@ const Hero: React.FC = () => {
         onClose={() => setAuthOpen(false)}
         onSwitch={(m) => setAuthMode(m)}
       />
-    {/* Background overlay */}
-  <div className="absolute inset-0 bg-black md:bg-transparent -z-10" aria-hidden="true" />
+  {/* Background overlay removed for white mobile background */}
     </header>
   );
 };

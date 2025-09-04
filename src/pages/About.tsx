@@ -1,6 +1,7 @@
 import React from 'react';
 import SiteNav from '../components/SiteNav';
 import BlurText from '../components/BlurText';
+import Footer from '../components/Footer';
 
 interface ValueItem { title:string; body:string; }
 interface TeamMember { name:string; role:string; tagline:string; image:string; }
@@ -78,7 +79,7 @@ const About: React.FC = () => {
           </div>
         </div>
       </section>
-      <footer className="py-6 text-center text-xs text-gray-500">© {new Date().getFullYear()} Dr. Shawn's. All rights reserved.</footer>
+  <Footer />
     </main>
   );
 };
