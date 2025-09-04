@@ -64,7 +64,7 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
 
   return (
     <>
-      <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center ${open ? 'bg-white/70 backdrop-blur-xl' : 'bg-white/90 backdrop-blur-md'} sticky top-0 z-[100] transition-all duration-300`}>      
+      <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center ${open ? 'bg-white/70 backdrop-blur-xl md:bg-white/90 md:backdrop-blur-md' : 'bg-white/90 backdrop-blur-md'} sticky top-0 z-[100] transition-all duration-300 ${open ? 'md:block hidden' : 'block'}`}>      
         <NavLink to="/" className="text-lg font-semibold italic text-brand-dark">Dr. Shawn's</NavLink>
         <nav className="ml-8 hidden md:flex items-center gap-6 text-sm font-medium">
           {renderLinks()}
