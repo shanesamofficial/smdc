@@ -4,6 +4,7 @@ import './styles.css';
 import Hero from './sections/Hero';
 import Intro from './sections/Intro';
 import Services from './sections/Services';
+import LogoShowcase from './components/LogoLoop';
 import ServicesPage from './pages/ServicesPage';
 import Footer from './components/Footer';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -23,7 +24,8 @@ const Landing: React.FC = () => (
   <div className="scroll-container">
       <Hero />
       <Intro />
-      <Services />
+  <Services />
+  <LogoShowcase />
     </div>
   <Footer />
   </>

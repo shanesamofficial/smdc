@@ -27,6 +27,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  doctorLogin: (email: string, password: string) => Promise<void>;
   signup: (data: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
   createPatient: (data: {
@@ -86,6 +87,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem(LS_CURRENT, found.id);
   };
 
+  const doctorLogin = async (email: string, password: string) => {
+    const res = await fetch('/api/auth/login', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ email, password }) });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error:'Login failed'}));
+      throw new Error(err.error || 'Doctor login failed');
+    }
+    const data = await res.json();
+    const docUser: User = { id: data.user.id, name: data.user.name, email: data.user.email, role: 'manager' };
+    setUser(docUser);
+    localStorage.setItem('doctor_token', data.token);
+  };
+
   const signup = async ({ name, email }: { name: string; email: string; password: string }) => {
     // Only manager can create accounts directly; normal signup creates patient pending approval could be handled.
     const exists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
@@ -124,6 +137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     loading,
     login,
+    doctorLogin,
     signup,
     logout,
     createPatient,

@@ -3,6 +3,7 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import 'dotenv/config';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 const app = express();
 app.use(cors());
@@ -10,6 +11,43 @@ app.use(express.json());
 
 // In-memory storage (replace with DB in production)
 const bookings = [];
+// Simple in-memory token revocation list (optional)
+const validTokens = new Set();
+
+// --- Auth Helpers (lightweight HMAC token) ---
+const TOKEN_TTL_MS = 1000 * 60 * 60 * 8; // 8h
+function base64url(buf){ return Buffer.from(buf).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_'); }
+function signToken(payload){
+  const secret = process.env.JWT_SECRET || 'dev-secret-change-me';
+  const data = JSON.stringify(payload);
+  const body = base64url(data);
+  const sig = crypto.createHmac('sha256', secret).update(body).digest('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const token = body + '.' + sig;
+  validTokens.add(token);
+  return token;
+}
+function verifyToken(token){
+  if(!token || !token.includes('.')) return null;
+  if(!validTokens.has(token)) return null; // simple allow-list
+  const secret = process.env.JWT_SECRET || 'dev-secret-change-me';
+  const [body, sig] = token.split('.');
+  const expected = crypto.createHmac('sha256', secret).update(body).digest('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  if (expected !== sig) return null;
+  try {
+    const json = JSON.parse(Buffer.from(body.replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8'));
+    if(Date.now() > json.exp) return null;
+    return json;
+  } catch { return null; }
+}
+
+function requireDoctor(req,res,next){
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ')? auth.slice(7): '';
+  const payload = verifyToken(token);
+  if(!payload || payload.role !== 'doctor') return res.status(401).json({ error:'Unauthorized'});
+  req.user = payload;
+  next();
+}
 
 // Mailer setup (optional if env provided)
 let transporter = null;
@@ -36,7 +74,32 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/api/bookings', (_req, res) => {
+// Auth endpoints
+app.post('/api/auth/login', (req,res)=>{
+  const { email, password } = req.body || {};
+  if(!email || !password) return res.status(400).json({ error:'Missing credentials'});
+  const allowedEmail = process.env.DOCTOR_EMAIL;
+  const allowedPass = process.env.DOCTOR_PASSWORD;
+  if(!allowedEmail || !allowedPass){
+    return res.status(500).json({ error:'Doctor credentials not configured' });
+  }
+  if(email.toLowerCase() !== allowedEmail.toLowerCase() || password !== allowedPass){
+    return res.status(401).json({ error:'Invalid email or password'});
+  }
+  const payload = { sub:'doctor', role:'doctor', email: allowedEmail, iat: Date.now(), exp: Date.now()+TOKEN_TTL_MS };
+  const token = signToken(payload);
+  res.json({ token, user: { id:'doctor', name:'Doctor', email: allowedEmail, role:'doctor' }, expiresIn: TOKEN_TTL_MS });
+});
+
+app.get('/api/auth/validate', (req,res)=>{
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ')? auth.slice(7): '';
+  const payload = verifyToken(token);
+  if(!payload) return res.status(401).json({ valid:false });
+  res.json({ valid:true, user:{ id:'doctor', name:'Doctor', email: payload.email, role:'doctor' }});
+});
+
+app.get('/api/bookings', requireDoctor, (_req, res) => {
   res.json(bookings);
 });
 
@@ -85,7 +148,7 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
-app.delete('/api/bookings/:id', (req, res) => {
+app.delete('/api/bookings/:id', requireDoctor, (req, res) => {
   const idx = bookings.findIndex(b => b.id === req.params.id);
   if(idx === -1) return res.status(404).json({ error: 'Not found' });
   const [removed] = bookings.splice(idx,1);
