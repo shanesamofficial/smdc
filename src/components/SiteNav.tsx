@@ -64,7 +64,7 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
 
   return (
     <>
-      <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center ${open ? 'bg-white/70 backdrop-blur-xl md:bg-white/90 md:backdrop-blur-md' : 'bg-white/90 backdrop-blur-md'} sticky top-0 z-[100] transition-all duration-300 ${open ? 'md:block hidden' : 'block'}`}>      
+      <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center ${open ? 'bg-white/70 backdrop-blur-xl md:bg-white/90 md:backdrop-blur-md' : 'bg-white/90 backdrop-blur-md'} sticky top-0 z-[100] transition-all duration-300 ${open ? 'md:opacity-100 opacity-0 pointer-events-none md:pointer-events-auto' : 'opacity-100 pointer-events-auto'}`}>      
         <NavLink to="/" className="text-lg font-semibold italic text-brand-dark">Dr. Shawn's</NavLink>
         <nav className="ml-8 hidden md:flex items-center gap-6 text-sm font-medium">
           {renderLinks()}
@@ -101,7 +101,7 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
         <button aria-label="Close menu" onClick={closeMenu} className="overlay-bg" />
         <div role="dialog" aria-modal={open? 'true':'false'} className="mobile-menu-panel">
           <div className="flex items-center justify-between flex-shrink-0">
-            <NavLink to="/" className="text-lg font-semibold italic text-brand-dark" onClick={closeMenu}>Dr. Shawn's</NavLink>
+            <NavLink to="/" className="text-lg font-semibold italic text-brand-dark" onClick={()=>{ setOpen(false); setClosing(false); }}>Dr. Shawn's</NavLink>
             <button className="w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-300 hover:bg-gray-100" onClick={closeMenu} aria-label="Close menu">
               <X className="w-5 h-5" />
             </button>
@@ -115,7 +115,7 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
                   to={item.to}
                   end={item.to==='/' }
                   ref={idx===0? firstLinkRef : undefined}
-                  onClick={closeMenu}
+                  onClick={()=>{ setOpen(false); setClosing(false); }}
                   className={({isActive})=>`group relative flex items-center gap-4 px-4 py-3 rounded-xl border border-transparent ${isActive? 'bg-brand-green/10 text-brand-green font-semibold border-brand-green/30' : 'hover:bg-gray-50 text-gray-700'} transition`}
                 >
                   <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-100 group-hover:bg-white shadow-inner">
@@ -129,12 +129,12 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
           </div>
           <div className="flex flex-col gap-3 pt-4 flex-shrink-0">
             {!user && (
-              <button onClick={()=>{ setOpen(false); openAuth('signup'); }} className="w-full text-sm font-semibold bg-brand-green text-white rounded-full py-3 shadow-card">Sign Up</button>
+              <button onClick={()=>{ setOpen(false); setClosing(false); openAuth('signup'); }} className="w-full text-sm font-semibold bg-brand-green text-white rounded-full py-3 shadow-card">Sign Up</button>
             )}
             {user && (
               <div className="flex items-center justify-between text-xs bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
                 <span className="font-medium text-gray-700 truncate">{user.name}</span>
-                <button onClick={()=>{ logout(); closeMenu(); }} className="text-red-600 font-semibold">Logout</button>
+                <button onClick={()=>{ logout(); setOpen(false); setClosing(false); }} className="text-red-600 font-semibold">Logout</button>
               </div>
             )}
           </div>
