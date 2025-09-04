@@ -58,3 +58,13 @@ html {
   transform: translateY(0);
   opacity: 1;
 }
+
+/* Simple fade-in animation for modal */
+@keyframes fadeInScale {
+  0% { opacity: 0; transform: translateY(12px) scale(.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeInScale .4s cubic-bezier(.4,0,.2,1);
+}

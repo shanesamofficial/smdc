@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
+import AuthModal from '../components/AuthModal';
 
 // Temporary placeholder images (replace with actual assets: hero.jpg, service1.jpg, service2.jpg, service3.jpg)
 const heroImg = 'https://via.placeholder.com/800x1000.png?text=Hero+Image';
@@ -10,13 +11,24 @@ const service3 = 'https://via.placeholder.com/400x300.png?text=Products';
 
 const Hero: React.FC = () => {
   const [ref, isInView] = useIntersectionObserver();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  const openAuth = (mode: 'login' | 'signup') => {
+    setAuthMode(mode);
+    setAuthOpen(true);
+  };
 
   return (
     <header ref={ref} className={`fullscreen-section section-card ${isInView ? 'in-view' : ''}`}>
       <div className="max-w-[1400px] mx-auto px-6 pt-8 pb-16 grid grid-cols-12 gap-10">
-        <nav className="col-span-12 flex items-center gap-12 mb-6">
-          <span className="text-lg font-semibold text-brand-dark italic">Dr. Shawn's</span>
+        <nav className="col-span-12 flex items-center gap-8 mb-6">
+          <span className="text-lg font-semibold text-brand-dark italic mr-2">Dr. Shawn's</span>
           <a href="#about" className="text-sm tracking-wide font-medium text-gray-700 hover:text-brand-green transition-colors">ABOUT</a>
+          <div className="ml-auto flex items-center gap-3">
+            <button onClick={() => openAuth('login')} className="text-xs font-semibold tracking-wide px-5 py-2 rounded-full border border-gray-300 hover:border-brand-green hover:text-brand-green transition">LOGIN</button>
+            <button onClick={() => openAuth('signup')} className="text-xs font-semibold tracking-wide px-5 py-2 rounded-full bg-brand-green text-white hover:opacity-90 transition shadow-card">SIGN UP</button>
+          </div>
         </nav>
 
         <div className="col-span-12 md:col-span-5 flex flex-col gap-8">
@@ -65,6 +77,7 @@ const Hero: React.FC = () => {
           </a>
         </div>
       </div>
+      <AuthModal open={authOpen} mode={authMode} onClose={() => setAuthOpen(false)} onSwitch={(m) => setAuthMode(m)} />
     </header>
   );
 };
