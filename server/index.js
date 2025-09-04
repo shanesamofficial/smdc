@@ -207,7 +207,12 @@ app.post('/api/patients', requireDoctor, async (req,res)=>{
   }
 });
 
+// In a serverless (Vercel) environment we export the app; locally we still listen.
 const port = process.env.PORT || 5174;
-app.listen(port, () => {
-  console.log(`API server running on :${port}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`API server running on :${port}`);
+  });
+}
+
+export default app;
