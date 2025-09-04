@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import SiteNav from '../components/SiteNav';
 import Footer from '../components/Footer';
 import BlurText from '../components/BlurText';
@@ -49,7 +50,7 @@ const ServicesPage: React.FC = () => {
               <h4 className="text-base font-semibold text-brand-dark">Need a personalized treatment plan?</h4>
               <p className="text-sm text-gray-700 leading-relaxed">Schedule a detailed consultation—digital diagnostics & smile assessment included. We’ll map phased care aligned with your comfort, timeline and goals.</p>
             </div>
-            <a href="/booking" className="inline-flex items-center gap-2 bg-brand-green text-white rounded-full px-6 py-3 text-sm font-semibold shadow-card hover:shadow-lg transition">Book Now →</a>
+            <Link to="/booking" className="inline-flex items-center gap-2 bg-brand-green text-white rounded-full px-6 py-3 text-sm font-semibold shadow-card hover:shadow-lg transition">Book Now →</Link>
           </div>
         </div>
       </section>

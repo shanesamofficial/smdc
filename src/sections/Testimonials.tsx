@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import BlurText from '../components/BlurText';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 
@@ -60,7 +61,7 @@ const Testimonials: React.FC = () => {
               <h3 className="text-black text-2xl font-extrabold leading-tight mb-4">Comfort. Clarity. Care.</h3>
               <p className="text-sm text-black/80 leading-relaxed">Every treatment plan is personalised—whether a simple filling or a full smile rehabilitation. Your comfort and long-term oral health guide every decision.</p>
             </div>
-            <a href="/booking" className="mt-8 inline-flex items-center bg-black text-white rounded-full px-6 py-3 text-sm font-semibold shadow hover:shadow-md transition-shadow">Book Your Visit →</a>
+                        <Link to="/booking" className="mt-8 inline-flex items-center bg-black text-white rounded-full px-6 py-3 text-sm font-semibold shadow hover:shadow-md transition-shadow">Book Your Visit →</Link>
           </div>
         </div>
       </div>

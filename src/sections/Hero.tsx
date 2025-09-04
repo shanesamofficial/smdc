@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import BlurText from '../components/BlurText';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
@@ -43,15 +44,15 @@ const Hero: React.FC = () => {
               />
             </div>
             <div className="flex flex-wrap gap-4 items-center">
-              <a
-                href="/booking"
+              <Link
+                to="/booking"
                 className="group inline-flex items-center gap-3 bg-brand-green text-white font-semibold text-base md:text-lg rounded-full pl-6 pr-8 md:pl-8 md:pr-10 py-4 md:py-5 shadow-card hover:shadow-lg transition-shadow"
               >
                 <span className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white flex items-center justify-center text-brand-green group-hover:translate-y-[-2px] transition-transform">
                   <ArrowUpRight className="w-5 h-5 md:w-6 md:h-6" />
                 </span>
                 Book Now
-              </a>
+              </Link>
             </div>
           </div>
 

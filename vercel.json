@@ -4,16 +4,6 @@
       "runtime": "nodejs18.x"
     }
   },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
