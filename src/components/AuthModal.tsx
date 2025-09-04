@@ -15,10 +15,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login, signup, user } = useAuth();
+  const { login, signup, user, resetPassword } = useAuth();
+  const [resetSent, setResetSent] = useState(false);
   const isSignup = mode === 'signup';
+  const [closing, setClosing] = useState(false);
 
-  if (!open) return null;
+  if (!open && !closing) return null;
+
+  const handleClose = () => {
+    setClosing(true);
+    setTimeout(()=>{ setClosing(false); onClose(); }, 230); // duration matches exit anim
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +51,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 animate-fade-in">
-        <button onClick={onClose} aria-label="Close" className="absolute top-3 right-3 text-gray-500 hover:text-black">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+      <div className={`relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 modal-ease ${closing? 'modal-exit' : 'modal-enter'}`}>
+        <button onClick={handleClose} aria-label="Close" className="absolute top-3 right-3 text-gray-500 hover:text-black">
           <X className="w-5 h-5" />
         </button>
         <h2 className="text-2xl font-bold mb-2">{isSignup ? 'Create Account' : 'Welcome Back'}</h2>
@@ -64,7 +71,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
           <span className="h-px bg-gray-200 flex-1" />
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
+  <form onSubmit={submit} className="space-y-4">
           {isSignup && (
             <div>
               <label className="block text-xs font-semibold tracking-wide mb-1">NAME</label>
@@ -80,12 +87,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/60" placeholder="••••••••" />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
+          {!isSignup && !resetSent && (
+            <div className="text-right -mt-1">
+              <button type="button" onClick={async()=>{ try { await resetPassword(email); setResetSent(true);} catch(e:any){ setError(e.message);} }} className="text-[11px] font-medium text-brand-green hover:underline">Forgot password?</button>
+            </div>
+          )}
+          {resetSent && <p className="text-[11px] text-green-600">Reset link sent (check your email)</p>}
           <button disabled={loading} type="submit" className="w-full bg-brand-green text-white font-semibold rounded-full py-3 text-sm hover:opacity-90 transition disabled:opacity-60">
             {loading ? 'Please wait...' : isSignup ? 'Sign Up' : 'Login'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-gray-500">
+  <p className="mt-6 text-center text-xs text-gray-500">
           {isSignup ? (
             <>Already have an account? <button type="button" onClick={() => onSwitch('login')} className="text-brand-green font-medium">Log in</button></>
           ) : (

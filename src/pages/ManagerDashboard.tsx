@@ -24,7 +24,12 @@ const DoctorDashboard: React.FC = () => {
   const [medications, setMedications] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Temporarily allow public access (login not required)
+  // Access control: allow if role manager OR valid doctor token present
+  const token = typeof window !== 'undefined' ? localStorage.getItem('doctor_token') : null;
+  const authorized = (user && user.role === 'manager') || !!token;
+  if(!authorized){
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="p-8 rounded-xl border bg-white shadow-sm text-center space-y-4 max-w-sm"><h1 className="text-xl font-semibold">Restricted</h1><p className="text-sm text-gray-500">Doctor access only. Please log in as doctor.</p><a href="/" className="inline-block text-sm font-medium text-brand-green hover:underline">Go Home</a></div></div>;
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +78,7 @@ const DoctorDashboard: React.FC = () => {
   const loadBookings = async () => {
     setBookingsLoading(true); setBookingsError(null);
     try {
-      const res = await fetch('/api/bookings');
+      const res = await fetch('/api/bookings', { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       if(!res.ok) throw new Error('Failed to load');
       setBookings(await res.json());
     } catch(err:any) {
@@ -85,7 +90,7 @@ const DoctorDashboard: React.FC = () => {
   const deleteBooking = async (id:string) => {
     if(!confirm('Delete this booking?')) return;
     try {
-      const res = await fetch(`/api/bookings/${id}` , { method:'DELETE'});
+      const res = await fetch(`/api/bookings/${id}` , { method:'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       if(!res.ok) throw new Error('Failed to delete');
       setBookings(b=>b.filter(x=>x.id!==id));
     } catch(err:any) {

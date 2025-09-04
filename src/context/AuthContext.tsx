@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { firebaseAuth } from '../firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 
 export type Role = 'manager' | 'patient';
 
@@ -21,6 +23,7 @@ export interface User {
   medicalConditions?: string;
   medications?: string;
   notes?: string;
+  createdAt?: any;
 }
 
 interface AuthContextValue {
@@ -29,6 +32,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   doctorLogin: (email: string, password: string) => Promise<void>;
   signup: (data: { name: string; email: string; password: string }) => Promise<void>;
+  resetPassword: (email:string) => Promise<void>;
   logout: () => void;
   createPatient: (data: {
     name: string; email: string; age?: number; gender?: string; mobile?: string;
@@ -63,28 +67,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loaded = loadUsers();
-    setUsers(loaded);
-    const currentId = localStorage.getItem(LS_CURRENT);
-    if (currentId) {
-      const found = loaded.find(u => u.id === currentId) || null;
-      setUser(found);
-    }
-    setLoading(false);
-  }, []);
-
   const persistUsers = (next: User[]) => {
     setUsers(next);
     saveUsers(next);
   };
 
-  const login = async (email: string, _password: string) => {
-    // For demo: password ignored
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!found) throw new Error('User not found');
-    setUser(found);
-    localStorage.setItem(LS_CURRENT, found.id);
+  const fetchPatients = async () => {
+    try {
+      const token = localStorage.getItem('doctor_token');
+      if(!token) return; // only doctor fetch
+      const res = await fetch('/api/patients', { headers:{ 'Authorization': `Bearer ${token}` }});
+      if(!res.ok) return;
+      const data: User[] = await res.json();
+      // merge into local user store (avoid duplicates) so existing code relying on users works
+      const others = users.filter(u=>u.role !== 'patient');
+      persistUsers([...others, ...data.map(p=> ({...p, role: 'patient' as Role}))]);
+    } catch {}
+  };
+
+  useEffect(() => {
+    const loaded = loadUsers();
+    setUsers(loaded);
+    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
+      if (fbUser) {
+        const freshUsers = loadUsers();
+        const existing = freshUsers.find(u => u.id === fbUser.uid);
+        if (existing) {
+          setUser(existing);
+        } else {
+          const newUser: User = { id: fbUser.uid, name: fbUser.displayName || fbUser.email || 'User', email: fbUser.email || '', role: 'patient' };
+          const next = [...freshUsers, newUser];
+            persistUsers(next);
+          setUser(newUser);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // if doctor logged (token present) fetch patients on mount & every 60s
+  useEffect(()=>{
+    if(localStorage.getItem('doctor_token')){
+      fetchPatients();
+      const id = setInterval(fetchPatients, 60000);
+      return ()=> clearInterval(id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
+
+  const login = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(firebaseAuth, email, password);
   };
 
   const doctorLogin = async (email: string, password: string) => {
@@ -97,40 +132,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const docUser: User = { id: data.user.id, name: data.user.name, email: data.user.email, role: 'manager' };
     setUser(docUser);
     localStorage.setItem('doctor_token', data.token);
+    fetchPatients();
   };
 
-  const signup = async ({ name, email }: { name: string; email: string; password: string }) => {
-    // Only manager can create accounts directly; normal signup creates patient pending approval could be handled.
-    const exists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
-    if (exists) throw new Error('Email already registered');
-    // For first ever user, make them manager automatically
+  const signup = async ({ name, email, password }: { name: string; email: string; password: string }) => {
+    const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+    if (name) {
+      await updateProfile(cred.user, { displayName: name });
+    }
     const role: Role = users.length === 0 ? 'manager' : 'patient';
-    const newUser: User = { id: crypto.randomUUID(), name, email, role };
+    const newUser: User = { id: cred.user.uid, name: name || email, email, role };
     const next = [...users, newUser];
     persistUsers(next);
     setUser(newUser);
-    localStorage.setItem(LS_CURRENT, newUser.id);
   };
 
   const logout = () => {
+    firebaseAuth.signOut();
     setUser(null);
     localStorage.removeItem(LS_CURRENT);
   };
 
-  const createPatient = async ({ name, email, age, gender, mobile, addressLine1, addressLine2, city, state, postalCode, emergencyContactName, emergencyContactPhone, allergies, medicalConditions, medications, notes }: {
-    name: string; email: string; age?: number; gender?: string; mobile?: string;
-    addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string;
-    emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string;
-  }) => {
-  // Temporarily allow anyone to create a patient (auth relaxed)
-    const exists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
-    if (exists) throw new Error('Email already used');
-    const newUser: User = { id: crypto.randomUUID(), name, email, role: 'patient', age, gender, mobile,
-      addressLine1, addressLine2, city, state, postalCode,
-      emergencyContactName, emergencyContactPhone, allergies, medicalConditions, medications, notes };
-    const next = [...users, newUser];
-    persistUsers(next);
-    return newUser;
+  const createPatient = async (payload: { name: string; email: string; age?: number; gender?: string; mobile?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string; emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string; }) => {
+    const token = localStorage.getItem('doctor_token');
+    if(!token) throw new Error('Not authorized');
+    const res = await fetch('/api/patients', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error:'Create failed'}));
+      throw new Error(err.error || 'Create patient failed');
+    }
+    const created = await res.json();
+    // assign role for local representation
+    const patient: User = { ...created, role: 'patient' };
+    const others = users.filter(u=>u.id !== patient.id);
+    persistUsers([...others, patient]);
+    return patient;
+  };
+
+  const resetPassword = async (email:string) => {
+    await sendPasswordResetEmail(firebaseAuth, email);
   };
 
   const value: AuthContextValue = {
@@ -139,6 +179,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     doctorLogin,
     signup,
+    resetPassword,
     logout,
     createPatient,
     patients: users.filter(u => u.role === 'patient')

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Menu, X, Home, Info, Images, Layers, Phone, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { motion } from 'motion/react';
+import AuthModal from './AuthModal';
+import { useAuth } from '../context/AuthContext';
 
 interface NavItem { to:string; label:string; icon: React.ComponentType<{className?:string}> }
 const navItems: NavItem[] = [
@@ -17,6 +19,10 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const firstLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const { user, logout } = useAuth();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const openAuth = (mode:'login'|'signup') => { setAuthMode(mode); setAuthOpen(true); };
 
   const closeMenu = useCallback(()=>{
     setClosing(true);
@@ -56,11 +62,25 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
 
   return (
     <>
-  <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center bg-white/90 backdrop-blur-md sticky top-0 z-[100]`}>      
+      <header className={`w-full ${compact? 'py-4' : 'py-6'} px-6 md:px-10 flex items-center bg-white/90 backdrop-blur-md sticky top-0 z-[100]`}>      
         <NavLink to="/" className="text-lg font-semibold italic text-brand-dark">Dr. Shawn's</NavLink>
         <nav className="ml-8 hidden md:flex items-center gap-6 text-sm font-medium">
           {renderLinks()}
         </nav>
+        <div className="ml-auto hidden md:flex items-center gap-4">
+          {!user && (
+            <>
+              <button onClick={()=>openAuth('login')} className="text-sm font-medium text-gray-700 hover:text-brand-green">Login</button>
+              <button onClick={()=>openAuth('signup')} className="text-sm font-semibold bg-brand-green text-white rounded-full px-5 py-2 shadow-card hover:shadow-md transition">Sign Up</button>
+            </>
+          )}
+          {user && (
+            <>
+              <span className="text-xs font-medium text-gray-500">Hi, {user.name.split(' ')[0]}</span>
+              <button onClick={logout} className="text-xs text-red-600 font-medium">Logout</button>
+            </>
+          )}
+        </div>
         <button className="md:hidden ml-auto inline-flex items-center justify-center w-10 h-10 rounded-md border border-gray-300 hover:bg-gray-100" onClick={()=>setOpen(true)} aria-label="Open menu">
           <Menu className="w-5 h-5" />
         </button>
@@ -103,6 +123,20 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
                 );
               })}
             </div>
+            <div className="flex flex-col gap-3 pt-2">
+              {!user && (
+                <>
+                  <button onClick={()=>{ setOpen(false); openAuth('login'); }} className="w-full text-sm font-medium border border-gray-300 rounded-full py-3 hover:bg-gray-50">Login</button>
+                  <button onClick={()=>{ setOpen(false); openAuth('signup'); }} className="w-full text-sm font-semibold bg-brand-green text-white rounded-full py-3 shadow-card">Sign Up</button>
+                </>
+              )}
+              {user && (
+                <div className="flex items-center justify-between text-xs bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                  <span className="font-medium text-gray-700 truncate">{user.name}</span>
+                  <button onClick={()=>{ logout(); closeMenu(); }} className="text-red-600 font-semibold">Logout</button>
+                </div>
+              )}
+            </div>
             <div className="pt-4 mt-auto text-[11px] tracking-wide text-gray-400 flex items-center justify-between border-t border-gray-200">
               <span>© {new Date().getFullYear()} Dr. Shawn's</span>
               <span className="font-medium text-gray-500">Smile Care</span>
@@ -112,6 +146,7 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
           </motion.div>
         </div>
       )}
+      <AuthModal open={authOpen} mode={authMode} onClose={()=>setAuthOpen(false)} onSwitch={(m)=> setAuthMode(m)} />
     </>
   );
 };

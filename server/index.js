@@ -4,6 +4,28 @@ import { nanoid } from 'nanoid';
 import 'dotenv/config';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import admin from 'firebase-admin';
+
+// Firebase Admin init (using service account credentials via env vars on Vercel)
+if(!admin.apps.length){
+  try {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g,'\n');
+    if(projectId && clientEmail && privateKey){
+      admin.initializeApp({
+        credential: admin.credential.cert({ projectId, clientEmail, privateKey })
+      });
+      console.log('[firebase-admin] initialized');
+    } else {
+      console.log('[firebase-admin] missing service account env vars - patient persistence disabled');
+    }
+  } catch(err){
+    console.error('[firebase-admin] init error', err.message);
+  }
+}
+
+const db = admin.apps.length ? admin.firestore() : null;
 
 const app = express();
 app.use(cors());
@@ -153,6 +175,36 @@ app.delete('/api/bookings/:id', requireDoctor, (req, res) => {
   if(idx === -1) return res.status(404).json({ error: 'Not found' });
   const [removed] = bookings.splice(idx,1);
   res.json(removed);
+});
+
+// Patients (Firestore persistence) – secure
+app.get('/api/patients', requireDoctor, async (_req,res)=>{
+  if(!db) return res.json([]);
+  try {
+    const snap = await db.collection('patients').orderBy('createdAt','desc').limit(500).get();
+    const items = snap.docs.map(d=> ({ id:d.id, ...d.data() }));
+    res.json(items);
+  } catch(err){
+    res.status(500).json({ error:'Failed to load patients'});
+  }
+});
+
+app.post('/api/patients', requireDoctor, async (req,res)=>{
+  if(!db) return res.status(503).json({ error:'Database disabled'});
+  const data = req.body || {};
+  if(!data.name || !data.email){
+    return res.status(400).json({ error:'Missing name/email'});
+  }
+  try {
+    const doc = await db.collection('patients').add({
+      ...data,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    const stored = await doc.get();
+    res.status(201).json({ id: doc.id, ...stored.data() });
+  } catch(err){
+    res.status(500).json({ error:'Failed to create patient'});
+  }
 });
 
 const port = process.env.PORT || 5174;
