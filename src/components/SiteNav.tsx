@@ -115,7 +115,14 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
                   to={item.to}
                   end={item.to==='/' }
                   ref={idx===0? firstLinkRef : undefined}
-                  onClick={()=>{ setOpen(false); setClosing(false); }}
+                  onClick={()=>{ 
+                    setOpen(false); 
+                    setClosing(false);
+                    // Force immediate DOM update
+                    if(overlayRef.current) {
+                      overlayRef.current.setAttribute('data-open', 'false');
+                    }
+                  }}
                   className={({isActive})=>`group relative flex items-center gap-4 px-4 py-3 rounded-xl border border-transparent ${isActive? 'bg-brand-green/10 text-brand-green font-semibold border-brand-green/30' : 'hover:bg-gray-50 text-gray-700'} transition`}
                 >
                   <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-100 group-hover:bg-white shadow-inner">
