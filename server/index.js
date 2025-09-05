@@ -410,6 +410,41 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
+// Get single booking (doctor only)
+app.get('/api/bookings/:id', requireDoctor, async (req, res) => {
+  const id = req.params.id;
+  try {
+    if (db) {
+      const ref = db.collection('bookings').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: 'Not found' });
+      const data = snap.data();
+      return res.json({
+        id: snap.id,
+        name: data.name,
+        email: data.email || '',
+        phone: data.phone || '',
+        date: data.date || '',
+        time: data.time || '',
+        service: data.service || 'GENERAL',
+        reasons: Array.isArray(data.reasons) ? data.reasons : [],
+        address: data.address || '',
+        notes: data.notes || '',
+        createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+        emailStatus: data.emailStatus || 'pending'
+      });
+    } else {
+      const item = bookings.find(b => b.id === id);
+      if (!item) return res.status(404).json({ error: 'Not found' });
+      return res.json(item);
+    }
+  } catch (err) {
+    console.error('[bookings] get one failed', err);
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    return res.status(500).json({ error: 'Failed to load booking', details: msg });
+  }
+});
+
 app.delete('/api/bookings/:id', requireDoctor, async (req, res) => {
   const id = req.params.id;
   try {

@@ -3,12 +3,10 @@ import SiteNav from '../components/SiteNav';
 import Footer from '../components/Footer';
 import BlurText from '../components/BlurText';
 
-interface BookingEntry { id:string; name:string; email:string; phone:string; date:string; time:string; service:string; notes:string; createdAt:string; }
-
-const services = ['GENERAL','CLEANING','IMPLANT','ALIGNERS','VENEERS','ORTHODONTICS','CHILD CARE'];
+interface BookingEntry { id:string; name:string; email:string; phone:string; date:string; time:string; notes:string; createdAt:string; }
 
 const Booking: React.FC = () => {
-  const [form, setForm] = useState({ name:'', email:'', phone:'', date:'', time:'', service:'GENERAL', notes:'', reasons: [] as string[], address:'' });
+  const [form, setForm] = useState({ name:'', email:'', phone:'', date:'', time:'', notes:'', reasons: [] as string[], address:'' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string|null>(null);
   const [success, setSuccess] = useState<string|null>(null);
@@ -27,7 +25,7 @@ const Booking: React.FC = () => {
   };
   useEffect(()=>{ load(); }, []);
 
-  const change = (e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>) => {
+  const change = (e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(f => ({ ...f, [name]: value }));
   };
@@ -43,7 +41,7 @@ const Booking: React.FC = () => {
       if(!res.ok) throw new Error((await res.json()).error || 'Failed');
       const created = await res.json();
       setSuccess('Booking requested successfully');
-  setForm({ name:'', email:'', phone:'', date:'', time:'', service:'GENERAL', notes:'', reasons:[], address:'' });
+  setForm({ name:'', email:'', phone:'', date:'', time:'', notes:'', reasons:[], address:'' });
       setList(l => [created, ...l]);
     } catch(err:any) {
       setError(err.message);
@@ -81,12 +79,7 @@ const Booking: React.FC = () => {
                 <label className="text-xs font-medium tracking-wide">ADDRESS <span className="text-red-500">*</span><br/><span className="text-[11px] font-normal text-gray-500">അഡ്രസ്സ്</span></label>
                 <input name="address" value={form.address} onChange={change} required className="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium tracking-wide">SERVICE</label>
-                <select name="service" value={form.service} onChange={change} className="w-full border rounded-lg px-3 py-2 text-sm">
-                  {services.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
+              {/* Service selection removed per request */}
               <div className="space-y-2">
                 <label className="text-xs font-medium tracking-wide">DATE</label>
                 <input type="date" name="date" value={form.date} onChange={change} required className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -139,7 +132,6 @@ const Booking: React.FC = () => {
                   <li key={b.id} className="border rounded-lg p-3 flex flex-col gap-1">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{b.name}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-green/10 text-brand-green font-medium">{b.service}</span>
                     </div>
                     <p className="text-xs text-gray-600">{b.date} @ {b.time}</p>
                   </li>

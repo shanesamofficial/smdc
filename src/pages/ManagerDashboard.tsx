@@ -84,11 +84,11 @@ const DoctorDashboard: React.FC = () => {
     : `w-full rounded-lg px-3 py-2 text-sm border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/40 ${extra}`;
   const [activeTab, setActiveTab] = useState<'new' | 'patients' | 'bookings' | 'approvals'>('new');
   // Bookings state
-  interface Booking { id:string; name:string; email:string; phone:string; date:string; time:string; service:string; notes:string; createdAt:string; emailStatus?:string }
+  interface Booking { id:string; name:string; email:string; phone:string; date:string; time:string; notes:string; createdAt:string; emailStatus?:string; service?: string }
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingsError, setBookingsError] = useState<string|null>(null);
-  const [sortKey, setSortKey] = useState<'name'|'service'|'date'|'time'|'createdAt'>('createdAt');
+  const [sortKey, setSortKey] = useState<'name'|'date'|'time'|'createdAt'>('createdAt');
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
 
   const loadBookings = async () => {
@@ -374,7 +374,7 @@ const DoctorDashboard: React.FC = () => {
           <thead>
             <tr className="text-left text-gray-500 text-xs border-b">
               <th className="py-2 px-3 cursor-pointer select-none" onClick={()=>toggleSort('name')}>Name {sortKey==='name' && (sortDir==='asc'?'▲':'▼')}</th>
-              <th className="py-2 px-3 cursor-pointer select-none" onClick={()=>toggleSort('service')}>Service {sortKey==='service' && (sortDir==='asc'?'▲':'▼')}</th>
+              {/* Service column removed */}
               <th className="py-2 px-3 cursor-pointer select-none" onClick={()=>toggleSort('date')}>Date {sortKey==='date' && (sortDir==='asc'?'▲':'▼')}</th>
               <th className="py-2 px-3 cursor-pointer select-none" onClick={()=>toggleSort('time')}>Time {sortKey==='time' && (sortDir==='asc'?'▲':'▼')}</th>
               <th className="py-2 px-3 cursor-pointer select-none" onClick={()=>toggleSort('createdAt')}>Submitted {sortKey==='createdAt' && (sortDir==='asc'?'▲':'▼')}</th>
@@ -386,7 +386,7 @@ const DoctorDashboard: React.FC = () => {
             {sortedBookings.map(b => (
               <tr key={b.id} className="border-b last:border-none">
                 <td className="py-2 px-3 font-medium">{b.name}</td>
-                <td className="py-2 px-3">{b.service}</td>
+                {/* Service removed */}
                 <td className="py-2 px-3">{b.date}</td>
                 <td className="py-2 px-3">{b.time}</td>
                 <td className="py-2 px-3 text-xs text-gray-500 whitespace-nowrap" title={new Date(b.createdAt).toLocaleString()}>{relativeTime(b.createdAt)}</td>
@@ -397,7 +397,8 @@ const DoctorDashboard: React.FC = () => {
                     'bg-gray-100 text-gray-600 px-2 py-1 rounded-full'
                   }>{b.emailStatus || '—'}</span>
                 </td>
-                <td className="py-2 px-3 text-xs">
+                <td className="py-2 px-3 text-xs space-x-3">
+                  <Link to={`/booking/${b.id}`} className="text-brand-green hover:underline">View</Link>
                   <button onClick={()=>deleteBooking(b.id)} className="text-red-600 hover:underline">Delete</button>
                 </td>
               </tr>
