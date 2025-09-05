@@ -6,13 +6,12 @@ import { useAuth } from '../context/AuthContext';
 import { firebaseAuth } from '../firebase';
 
 interface NavItem { to:string; label:string; icon: React.ComponentType<{className?:string}> }
-const navItems: NavItem[] = [
+const baseNav: NavItem[] = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/about', label: 'About', icon: Info },
   { to: '/services', label: 'Services', icon: Layers },
   { to: '/portfolio', label: 'Portfolio', icon: Images },
   { to: '/contact', label: 'Contact', icon: Phone },
-  { to: '/doctor', label: 'Doctor', icon: LayoutDashboard },
 ];
 
 const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
@@ -85,6 +84,17 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
     timer = setInterval(fetchPending, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  const hasDoctorToken = typeof window !== 'undefined' && !!localStorage.getItem('doctor_token');
+  const isDoctor = hasDoctorToken || user?.role === 'manager';
+  const isPatient = user?.role === 'patient';
+
+  const navItems: NavItem[] = React.useMemo(()=>{
+    const items = [...baseNav];
+    if (isDoctor) items.push({ to: '/doctor', label: 'Doctor', icon: LayoutDashboard });
+    if (isPatient) items.push({ to: '/member', label: 'My Dashboard', icon: LayoutDashboard });
+    return items;
+  }, [isDoctor, isPatient]);
 
   const linkBase = 'px-2 py-1 rounded transition-colors';
   const renderLinks = (onClick?:()=>void)=>(

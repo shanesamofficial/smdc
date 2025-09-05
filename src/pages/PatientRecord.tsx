@@ -31,14 +31,23 @@ const PatientRecord: React.FC = () => {
 
   useEffect(()=>{
     (async ()=>{
-      if(!id || !isDoctor) return;
-      setLoading(true); setError(null);
+      setError(null); setLoading(true);
       try{
-        const headers = await getAuthHeader();
-        if (!headers.Authorization) return;
-        const res = await fetch(`/api/patients/${id}/records`, { headers });
-        if (!res.ok) throw new Error('Failed to load records');
-        setRecords(await res.json());
+        if (isDoctor) {
+          if(!id) { setLoading(false); return; }
+          const headers = await getAuthHeader();
+          if (!headers.Authorization) { setLoading(false); return; }
+          const res = await fetch(`/api/patients/${id}/records`, { headers });
+          if (!res.ok) throw new Error('Failed to load records');
+          setRecords(await res.json());
+        } else {
+          // Patient: read-only records
+          const idt = await firebaseAuth.currentUser?.getIdToken();
+          if(!idt){ setLoading(false); return; }
+          const res = await fetch('/api/me/records', { headers: { Authorization: `Bearer ${idt}` }});
+          if (!res.ok) throw new Error('Failed to load records');
+          setRecords(await res.json());
+        }
       }catch(e:any){ setError(e.message); }
       finally{ setLoading(false); }
     })();

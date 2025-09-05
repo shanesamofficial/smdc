@@ -94,6 +94,26 @@ async function requireDoctor(req,res,next){
   return res.status(401).json({ error:'Unauthorized'});
 }
 
+// Patient auth: verify Firebase ID token with role 'patient' (and approved if set)
+async function requirePatient(req, res, next){
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ')? auth.slice(7): '';
+  if (!admin.apps.length || !token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    const isPatient = decoded && (decoded.role === 'patient' || decoded.role === undefined); // default users may have role undefined but approved
+    if (!isPatient || !decoded.email) return res.status(401).json({ error: 'Unauthorized' });
+    // Optionally enforce approved flag if present
+    if (decoded.hasOwnProperty('approved') && decoded.approved !== true) {
+      return res.status(403).json({ error: 'Not approved' });
+    }
+    req.user = { email: decoded.email, role: 'patient', uid: decoded.uid };
+    return next();
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
 // Mailer setup (optional if env provided)
 let transporter = null;
 let mailReady = false;
@@ -619,6 +639,35 @@ app.delete('/api/patients/:pid/records/:rid', requireDoctor, async (req, res) =>
   } catch (err) {
     const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
     res.status(500).json({ error:'Failed to delete record', details: msg });
+  }
+});
+
+// Self-service endpoints for patients: resolve patient by email and return their data/records (read-only)
+app.get('/api/me/patient', requirePatient, async (req, res) => {
+  if (!db) return res.status(503).json({ error:'Database disabled'});
+  try {
+    const snap = await db.collection('patients').where('email','==', req.user.email).limit(1).get();
+    if (snap.empty) return res.status(404).json({ error:'Not found' });
+    const doc = snap.docs[0];
+    return res.json({ id: doc.id, ...doc.data() });
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to load patient', details: msg });
+  }
+});
+
+app.get('/api/me/records', requirePatient, async (req, res) => {
+  if (!db) return res.json([]);
+  try {
+    const snap = await db.collection('patients').where('email','==', req.user.email).limit(1).get();
+    if (snap.empty) return res.json([]);
+    const doc = snap.docs[0];
+    const recs = await db.collection('patients').doc(doc.id).collection('records').orderBy('createdAt','desc').get();
+    const items = recs.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt && d.data().createdAt.toDate ? d.data().createdAt.toDate().toISOString() : new Date().toISOString() }));
+    return res.json(items);
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to load records', details: msg });
   }
 });
 
