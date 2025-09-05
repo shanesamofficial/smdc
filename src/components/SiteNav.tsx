@@ -55,11 +55,48 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
     return ()=> window.removeEventListener('keydown', handler);
   }, [open, closeMenu]);
 
+  // Pending approvals badge (doctor only via server token)
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  useEffect(() => {
+    let timer: any;
+    const fetchPending = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('doctor_token') : null;
+        if (!token) { setPendingCount(0); return; }
+        const res = await fetch('/api/users/pending', { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) { setPendingCount(0); return; }
+        const data = await res.json();
+        setPendingCount(Array.isArray(data.users) ? data.users.length : 0);
+      } catch {
+        setPendingCount(0);
+      }
+    };
+    fetchPending();
+    timer = setInterval(fetchPending, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   const linkBase = 'px-2 py-1 rounded transition-colors';
   const renderLinks = (onClick?:()=>void)=>(
-    navItems.map(item=> (
-      <NavLink key={item.to} to={item.to} end={item.to==='/' } onClick={()=>{ onClick?.(); setOpen(false); }} className={({isActive})=>`${linkBase} ${isActive? 'text-brand-green font-semibold' : 'text-gray-600 hover:text-brand-green'}`}>{item.label}</NavLink>
-    ))
+    navItems.map(item=> {
+      const isDoctorLink = item.to === '/doctor';
+      return (
+        <NavLink 
+          key={item.to} 
+          to={item.to} 
+          end={item.to==='/' } 
+          onClick={()=>{ onClick?.(); setOpen(false); }} 
+          className={({isActive})=>`${linkBase} ${isActive? 'text-brand-green font-semibold' : 'text-gray-600 hover:text-brand-green'} flex items-center gap-1`}
+        >
+          <span>{item.label}</span>
+          {isDoctorLink && pendingCount > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold bg-red-500 text-white">
+              {pendingCount}
+            </span>
+          )}
+        </NavLink>
+      );
+    })
   );
 
   return (
@@ -128,7 +165,14 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
                   <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-100 group-hover:bg-white shadow-inner">
                     <Icon className="w-5 h-5" />
                   </span>
-                  <span className="text-sm tracking-wide flex-1">{item.label}</span>
+                  <span className="text-sm tracking-wide flex-1 flex items-center gap-2">
+                    {item.label}
+                    {item.to === '/doctor' && pendingCount > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold bg-red-500 text-white">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </span>
                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-brand-green transition" />
                 </NavLink>
               );

@@ -19,6 +19,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
   const [resetSent, setResetSent] = useState(false);
   const isSignup = mode === 'signup';
   const [closing, setClosing] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   if (!open && !closing) return null;
 
@@ -90,7 +91,30 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
           </div>
           <div>
             <label className="block text-xs font-semibold tracking-wide mb-1">PASSWORD</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/60" placeholder="••••••••" />
+            <div className="relative">
+              <input 
+                type={showPwd ? 'text' : 'password'} 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/60" 
+                placeholder="••••••••" 
+              />
+              <button 
+                type="button" 
+                onClick={()=> setShowPwd(v=>!v)} 
+                aria-label={showPwd? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
+              >
+                {showPwd ? (
+                  // eye-off icon
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M3 3l18 18"/><path d="M10.58 10.58a3 3 0 104.24 4.24"/><path d="M16.24 16.24A10.94 10.94 0 0112 18c-5 0-9-4-9-6a10.94 10.94 0 014.46-4.94"/><path d="M9.88 5.12A10.94 10.94 0 0112 6c5 0 9 4 9 6a10.94 10.94 0 01-1.64 2.88"/></svg>
+                ) : (
+                  // eye icon
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                )}
+              </button>
+            </div>
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
           {!isSignup && !resetSent && (

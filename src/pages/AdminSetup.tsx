@@ -13,6 +13,7 @@ const AdminSetup: React.FC = () => {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState('');
   const [isLoggedInAsDoctor, setIsLoggedInAsDoctor] = useState(false);
+  const [showDocPwd, setShowDocPwd] = useState(false);
 
   // Check if doctor token exists on mount
   React.useEffect(() => {
@@ -168,13 +169,27 @@ const AdminSetup: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium mb-2">Doctor Password</label>
-                <input
-                  type="password"
-                  value={doctorPassword}
-                  onChange={(e) => setDoctorPassword(e.target.value)}
-                  placeholder="Enter doctor password"
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                />
+                <div className="relative">
+                  <input
+                    type={showDocPwd ? 'text' : 'password'}
+                    value={doctorPassword}
+                    onChange={(e) => setDoctorPassword(e.target.value)}
+                    placeholder="Enter doctor password"
+                    className="w-full border rounded-lg px-3 py-2 pr-10 text-sm"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showDocPwd ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowDocPwd((v) => !v)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
+                  >
+                    {showDocPwd ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M3 3l18 18"/><path d="M10.58 10.58a3 3 0 104.24 4.24"/><path d="M16.24 16.24A10.94 10.94 0 0112 18c-5 0-9-4-9-6a10.94 10.94 0 014.46-4.94"/><path d="M9.88 5.12A10.94 10.94 0 0112 6c5 0 9 4 9 6a10.94 10.94 0 01-1.64 2.88"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button

@@ -34,6 +34,7 @@ app.use(express.json());
 // In-memory storage fallback (used only if Firestore not initialized)
 const bookings = [];
 // Simple in-memory token revocation list (optional)
+// NOTE: Avoid enforcing this in verify() so tokens don't break after server restarts.
 const validTokens = new Set();
 
 // --- Auth Helpers (lightweight HMAC token) ---
@@ -50,7 +51,7 @@ function signToken(payload){
 }
 function verifyToken(token){
   if(!token || !token.includes('.')) return null;
-  if(!validTokens.has(token)) return null; // simple allow-list
+  // Do NOT enforce validTokens.has(token) – that would break tokens after server restarts
   const secret = process.env.JWT_SECRET || 'dev-secret-change-me';
   const [body, sig] = token.split('.');
   const expected = crypto.createHmac('sha256', secret).update(body).digest('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
@@ -133,8 +134,10 @@ app.post('/api/auth/set-doctor-claims', requireDoctor, async (req,res)=>{
     await admin.auth().setCustomUserClaims(uid, { role: 'doctor' });
     res.json({ success: true, message: 'Doctor claims set successfully' });
   } catch(err) {
-    console.error('[auth] set claims failed:', err);
-    res.status(500).json({ error: 'Failed to set claims' });
+  console.error('[auth] set claims failed:', err);
+  const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+  const code = (err && err.errorInfo?.code) || 'unknown';
+  res.status(500).json({ error: 'Failed to set claims', details: msg, code });
   }
 });
 
@@ -173,8 +176,9 @@ app.get('/api/users/pending', requireDoctor, async (req, res) => {
     const pendingUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json({ users: pendingUsers });
   } catch (err) {
-    console.error('[users] fetch pending failed:', err);
-    res.status(500).json({ error: 'Failed to fetch pending users' });
+  console.error('[users] fetch pending failed:', err);
+  const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+  res.status(500).json({ error: 'Failed to fetch pending users', details: msg });
   }
 });
 
@@ -203,8 +207,10 @@ app.post('/api/users/approve', requireDoctor, async (req, res) => {
 
     res.json({ success: true, message: `User ${status} successfully` });
   } catch (err) {
-    console.error('[users] approval failed:', err);
-    res.status(500).json({ error: 'Failed to update user status' });
+  console.error('[users] approval failed:', err);
+  const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+  const code = (err && err.errorInfo?.code) || 'unknown';
+  res.status(500).json({ error: 'Failed to update user status', details: msg, code });
   }
 });
 
@@ -288,8 +294,9 @@ app.get('/api/bookings', async (req, res) => {
       return res.json(doctor ? items : items.slice(0,10));
     }
   } catch(err){
-    console.error('[bookings] load failed', err);
-    return res.status(500).json({ error:'Failed to load bookings' });
+  console.error('[bookings] load failed', err);
+  const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+  return res.status(500).json({ error:'Failed to load bookings', details: msg });
   }
 });
 
@@ -378,8 +385,9 @@ app.post('/api/bookings', async (req, res) => {
 
     return res.status(201).json(stored);
   } catch(err){
-    console.error('[bookings] create failed', err);
-    return res.status(500).json({ error:'Failed to create booking' });
+  console.error('[bookings] create failed', err);
+  const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+  return res.status(500).json({ error:'Failed to create booking', details: msg });
   }
 });
 
@@ -400,8 +408,9 @@ app.delete('/api/bookings/:id', requireDoctor, async (req, res) => {
       return res.json(removed);
     }
   } catch(err){
-    console.error('[bookings] delete failed', err);
-    return res.status(500).json({ error:'Delete failed' });
+  console.error('[bookings] delete failed', err);
+  const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+  return res.status(500).json({ error:'Delete failed', details: msg });
   }
 });
 
@@ -413,8 +422,19 @@ app.get('/api/patients', requireDoctor, async (_req,res)=>{
     const items = snap.docs.map(d=> ({ id:d.id, ...d.data() }));
     res.json(items);
   } catch(err){
-    res.status(500).json({ error:'Failed to load patients'});
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to load patients', details: msg});
   }
+});
+
+// Lightweight diagnostics endpoint (no secrets)
+app.get('/api/_diag', (_req,res)=>{
+  res.json({
+    firebaseAdminInitialized: !!admin.apps.length,
+    projectId: process.env.FIREBASE_PROJECT_ID ? 'set' : 'missing',
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL ? 'set' : 'missing',
+    privateKey: process.env.FIREBASE_PRIVATE_KEY ? 'set' : 'missing'
+  });
 });
 
 app.post('/api/patients', requireDoctor, async (req,res)=>{
