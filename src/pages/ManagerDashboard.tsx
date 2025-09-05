@@ -90,19 +90,22 @@ const DoctorDashboard: React.FC = () => {
   const [bookingsError, setBookingsError] = useState<string|null>(null);
   const [sortKey, setSortKey] = useState<'name'|'date'|'time'|'createdAt'>('createdAt');
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+  const [bookingQuery, setBookingQuery] = useState('');
 
   const loadBookings = async () => {
     setBookingsLoading(true); setBookingsError(null);
     try {
       const headers = await getAuthHeader();
-      const res = await fetch('/api/bookings', { headers: Object.keys(headers).length ? headers : undefined });
+      const qs = bookingQuery.trim() ? `?q=${encodeURIComponent(bookingQuery.trim())}` : '';
+      const res = await fetch(`/api/bookings${qs}`, { headers: Object.keys(headers).length ? headers : undefined });
       if(!res.ok) throw new Error('Failed to load');
       setBookings(await res.json());
     } catch(err:any) {
       setBookingsError(err.message);
     } finally { setBookingsLoading(false); }
   };
-  useEffect(()=>{ loadBookings(); }, []);
+  useEffect(()=>{ loadBookings(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingQuery]);
 
   // Pending users state
   interface PendingUser { id: string; uid: string; name: string; email: string; status: string; createdAt: string; }
@@ -165,6 +168,22 @@ const DoctorDashboard: React.FC = () => {
     } catch(err:any) {
       alert(err.message);
     }
+  };
+
+  // Edit booking
+  const [editingBooking, setEditingBooking] = useState<Booking|null>(null);
+  const startEditBooking = (b: Booking) => setEditingBooking(b);
+  const saveBooking = async () => {
+    if (!editingBooking) return;
+    try {
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/bookings/${editingBooking.id}`, { method:'PUT', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(editingBooking) });
+      if(!res.ok) throw new Error('Failed to update booking');
+      const updated = await res.json();
+      setBookings(list => list.map(it => it.id===updated.id? { ...it, ...updated }: it));
+      setEditingBooking(null);
+      setSuccess('Booking updated');
+    } catch(err:any){ setError(err.message); }
   };
 
   const toggleSort = (key: typeof sortKey) => {
@@ -324,10 +343,79 @@ const DoctorDashboard: React.FC = () => {
     </div>
   );
 
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientsServer, setPatientsServer] = useState(patients);
+  useEffect(()=>{ setPatientsServer(patients); }, [patients]);
+  useEffect(()=>{
+    (async ()=>{
+      try{
+        const headers = await getAuthHeader();
+        if (!headers.Authorization) return;
+        const qs = patientQuery.trim()? `?q=${encodeURIComponent(patientQuery.trim())}` : '';
+        const res = await fetch(`/api/patients${qs}`, { headers });
+        if(res.ok){ setPatientsServer(await res.json()); }
+      }catch{}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientQuery]);
+
+  // Edit/delete patient
+  const [editingPatient, setEditingPatient] = useState<string|null>(null);
+  const [editPatientDraft, setEditPatientDraft] = useState<any>({});
+  const startEditPatient = (id: string) => {
+    const p = patients.find(x=>x.id===id);
+    if (!p) return;
+    setEditingPatient(id);
+    setEditPatientDraft({
+      name: p.name || '',
+      email: p.email || '',
+      mobile: p.mobile || '',
+      city: p.city || '',
+      notes: p.notes || ''
+    });
+  };
+  const savePatient = async () => {
+    if (!editingPatient) return;
+    try {
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/patients/${editingPatient}`, { method:'PUT', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(editPatientDraft) });
+      if(!res.ok) throw new Error('Failed to update patient');
+      setSuccess('Patient updated');
+      setEditingPatient(null);
+    } catch(err:any){ setError(err.message); }
+  };
+  const deletePatient = async (id: string) => {
+    if(!confirm('Delete this patient?')) return;
+    try {
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/patients/${id}`, { method:'DELETE', headers });
+      if(!res.ok) throw new Error('Failed to delete patient');
+      setSuccess('Patient deleted');
+    } catch(err:any){ setError(err.message); }
+  };
+
   const renderPatients = () => (
     <div className={dark ? 'bg-[#121c1f] rounded-xl border border-gray-700 p-6 overflow-hidden' : 'bg-white rounded-xl border p-6 overflow-hidden'}>
-      <h2 className="font-semibold mb-4">Patients</h2>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <h2 className="font-semibold">Patients</h2>
+        <input value={patientQuery} onChange={e=>setPatientQuery(e.target.value)} placeholder="Search patients..." className="text-xs border rounded-lg px-3 py-1.5" />
+      </div>
       <div className="overflow-x-auto">
+        {editingPatient && (
+          <div className="mb-3 p-3 border rounded-lg bg-yellow-50 text-xs">
+            <div className="flex gap-2 flex-wrap">
+              <input className="border rounded px-2 py-1" value={editPatientDraft.name} onChange={e=>setEditPatientDraft({...editPatientDraft, name:e.target.value})} placeholder="Name" />
+              <input className="border rounded px-2 py-1" value={editPatientDraft.email} onChange={e=>setEditPatientDraft({...editPatientDraft, email:e.target.value})} placeholder="Email" />
+              <input className="border rounded px-2 py-1" value={editPatientDraft.mobile} onChange={e=>setEditPatientDraft({...editPatientDraft, mobile:e.target.value})} placeholder="Mobile" />
+              <input className="border rounded px-2 py-1" value={editPatientDraft.city} onChange={e=>setEditPatientDraft({...editPatientDraft, city:e.target.value})} placeholder="City" />
+              <input className="border rounded px-2 py-1 w-64" value={editPatientDraft.notes} onChange={e=>setEditPatientDraft({...editPatientDraft, notes:e.target.value})} placeholder="Notes" />
+            </div>
+            <div className="mt-2 space-x-3">
+              <button onClick={savePatient} className="text-green-700 font-medium">Save</button>
+              <button onClick={()=>setEditingPatient(null)} className="text-gray-600">Cancel</button>
+            </div>
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 text-xs border-b">
@@ -342,7 +430,7 @@ const DoctorDashboard: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {patients.map(p => (
+            {patientsServer.map(p => (
               <tr key={p.id} className="border-b last:border-none">
                 <td className="py-2 pr-4 font-medium">{p.name}</td>
                 <td className="py-2 pr-4">{p.email}</td>
@@ -351,10 +439,14 @@ const DoctorDashboard: React.FC = () => {
                 <td className="py-2 pr-4">{p.mobile || '—'}</td>
                 <td className="py-2 pr-4">{p.city || '—'}</td>
                 <td className="py-2 pr-4 text-xs">{p.emergencyContactName ? `${p.emergencyContactName} · ${p.emergencyContactPhone || ''}` : '—'}</td>
-                <td className="py-2 pr-4"><Link to={`/patient/${p.id}`} className="text-brand-green hover:underline">View</Link></td>
+                <td className="py-2 pr-4 flex gap-3">
+                  <Link to={`/patient/${p.id}`} className="text-brand-green hover:underline">View</Link>
+                  <button onClick={()=>startEditPatient(p.id)} className="text-blue-600 hover:underline">Edit</button>
+                  <button onClick={()=>deletePatient(p.id)} className="text-red-600 hover:underline">Delete</button>
+                </td>
               </tr>
             ))}
-            {patients.length === 0 && (
+            {patientsServer.length === 0 && (
               <tr><td colSpan={8} className="py-6 text-center text-gray-400">No patients yet</td></tr>
             )}
           </tbody>
@@ -365,11 +457,30 @@ const DoctorDashboard: React.FC = () => {
 
   const renderBookings = () => (
     <div className={dark ? 'bg-[#121c1f] rounded-xl border border-gray-700 p-6 overflow-hidden' : 'bg-white rounded-xl border p-6 overflow-hidden'}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <h2 className="font-semibold">Bookings</h2>
-        <button onClick={loadBookings} className="text-xs font-medium text-brand-green hover:underline disabled:opacity-50" disabled={bookingsLoading}>Refresh</button>
+        <div className="flex items-center gap-2 ml-auto">
+          <input value={bookingQuery} onChange={e=>setBookingQuery(e.target.value)} placeholder="Search bookings..." className="text-xs border rounded-lg px-3 py-1.5" />
+          <button onClick={loadBookings} className="text-xs font-medium text-brand-green hover:underline disabled:opacity-50" disabled={bookingsLoading}>Refresh</button>
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl">
+        {editingBooking && (
+          <div className="mb-3 p-3 border rounded-lg bg-yellow-50 text-xs">
+            <div className="flex gap-2 flex-wrap">
+              <input className="border rounded px-2 py-1" value={editingBooking.name} onChange={e=>setEditingBooking({...editingBooking, name:e.target.value})} placeholder="Name" />
+              <input className="border rounded px-2 py-1" value={editingBooking.email} onChange={e=>setEditingBooking({...editingBooking, email:e.target.value})} placeholder="Email" />
+              <input className="border rounded px-2 py-1" value={editingBooking.phone} onChange={e=>setEditingBooking({...editingBooking, phone:e.target.value})} placeholder="Phone" />
+              <input className="border rounded px-2 py-1" value={editingBooking.date} onChange={e=>setEditingBooking({...editingBooking, date:e.target.value})} placeholder="Date" />
+              <input className="border rounded px-2 py-1" value={editingBooking.time} onChange={e=>setEditingBooking({...editingBooking, time:e.target.value})} placeholder="Time" />
+              <input className="border rounded px-2 py-1 w-64" value={editingBooking.notes} onChange={e=>setEditingBooking({...editingBooking, notes:e.target.value})} placeholder="Notes" />
+            </div>
+            <div className="mt-2 space-x-3">
+              <button onClick={saveBooking} className="text-green-700 font-medium">Save</button>
+              <button onClick={()=>setEditingBooking(null)} className="text-gray-600">Cancel</button>
+            </div>
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 text-xs border-b">
@@ -399,6 +510,7 @@ const DoctorDashboard: React.FC = () => {
                 </td>
                 <td className="py-2 px-3 text-xs space-x-3">
                   <Link to={`/booking/${b.id}`} className="text-brand-green hover:underline">View</Link>
+                  <button onClick={()=>startEditBooking(b)} className="text-blue-600 hover:underline">Edit</button>
                   <button onClick={()=>deleteBooking(b.id)} className="text-red-600 hover:underline">Delete</button>
                 </td>
               </tr>

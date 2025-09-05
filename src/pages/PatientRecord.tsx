@@ -1,31 +1,80 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Footer from '../components/Footer';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { firebaseAuth } from '../firebase';
 
 // Placeholder for patient medical data structure
-interface RecordEntry {
-  id: string;
-  date: string;
-  notes: string;
-  prescription: string;
-}
-
-// For demo: generate fake records deterministic from id
-function generateRecords(id: string): RecordEntry[] {
-  return [1,2,3].map(i => ({
-    id: `${id}-${i}`,
-    date: new Date(Date.now() - i*86400000).toLocaleDateString(),
-    notes: `Check-up session ${i}. Patient progressing well.`,
-    prescription: `Prescription ${i}: Take medication X ${i} times daily.`
-  }));
-}
+interface RecordEntry { id: string; date: string; notes: string; prescription: string; createdAt?: string }
 
 const PatientRecord: React.FC = () => {
   const { id } = useParams();
   const { patients, user } = useAuth();
-  const patient = patients.find(p => p.id === id);
-  const records = id ? generateRecords(id) : [];
+  const patient = useMemo(()=> patients.find(p => p.id === id), [patients, id]);
+  const [records, setRecords] = useState<RecordEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string|null>(null);
+  const hasDoctorToken = typeof window !== 'undefined' && !!localStorage.getItem('doctor_token');
+  const isDoctor = hasDoctorToken || user?.role === 'manager';
+
+  const getAuthHeader = async (): Promise<Record<string,string>> => {
+    const t = typeof window !== 'undefined' ? localStorage.getItem('doctor_token') : null;
+    if (t) return { Authorization: `Bearer ${t}` };
+    try {
+      if (firebaseAuth.currentUser) {
+        const idt = await firebaseAuth.currentUser.getIdToken();
+        return { Authorization: `Bearer ${idt}` };
+      }
+    } catch {}
+    return {};
+  };
+
+  useEffect(()=>{
+    (async ()=>{
+      if(!id || !isDoctor) return;
+      setLoading(true); setError(null);
+      try{
+        const headers = await getAuthHeader();
+        if (!headers.Authorization) return;
+        const res = await fetch(`/api/patients/${id}/records`, { headers });
+        if (!res.ok) throw new Error('Failed to load records');
+        setRecords(await res.json());
+      }catch(e:any){ setError(e.message); }
+      finally{ setLoading(false); }
+    })();
+  }, [id, isDoctor]);
+
+  const [draft, setDraft] = useState({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'' });
+  const addRecord = async () => {
+    if(!id) return;
+    try{
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/patients/${id}/records`, { method:'POST', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(draft) });
+      if(!res.ok) throw new Error('Failed to add record');
+      const created = await res.json();
+      setRecords(list => [created, ...list]);
+      setDraft({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'' });
+    }catch(e:any){ alert(e.message); }
+  };
+  const saveRecord = async (rid: string, patch: Partial<RecordEntry>) => {
+    if(!id) return;
+    try{
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/patients/${id}/records/${rid}`, { method:'PUT', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(patch) });
+      if(!res.ok) throw new Error('Failed to update record');
+      setRecords(list => list.map(r => r.id===rid? { ...r, ...patch }: r));
+    }catch(e:any){ alert(e.message); }
+  };
+  const deleteRecord = async (rid: string) => {
+    if(!id) return;
+    if(!confirm('Delete this record?')) return;
+    try{
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/patients/${id}/records/${rid}`, { method:'DELETE', headers });
+      if(!res.ok) throw new Error('Failed to delete record');
+      setRecords(list => list.filter(r => r.id !== rid));
+    }catch(e:any){ alert(e.message); }
+  };
 
   if (!user) return <div className="p-8">Not logged in.</div>;
   // Patient can only view their own, manager can view any
@@ -88,6 +137,16 @@ const PatientRecord: React.FC = () => {
         </div>
         <section className="bg-white rounded-xl p-6 border shadow-sm">
           <h3 className="font-semibold mb-4">History & Prescriptions</h3>
+          {isDoctor && (
+            <div className="mb-4 p-3 border rounded-lg bg-gray-50 text-sm flex flex-wrap gap-2">
+              <input type="date" className="border rounded px-2 py-1" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})} />
+              <input className="border rounded px-2 py-1 w-56" placeholder="Notes" value={draft.notes} onChange={e=>setDraft({...draft, notes:e.target.value})} />
+              <input className="border rounded px-2 py-1 w-56" placeholder="Prescription" value={draft.prescription} onChange={e=>setDraft({...draft, prescription:e.target.value})} />
+              <button onClick={addRecord} className="text-brand-green font-medium">Add</button>
+            </div>
+          )}
+          {loading && <p className="text-xs text-gray-500">Loading…</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
           <ul className="space-y-4">
             {records.map(r => (
               <li key={r.id} className="border rounded-lg p-4">
@@ -95,10 +154,29 @@ const PatientRecord: React.FC = () => {
                   <span className="text-xs font-medium tracking-wide text-gray-500">{r.date}</span>
                   <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded-full">VISIT</span>
                 </div>
-                <p className="text-sm mb-2">{r.notes}</p>
-                <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
+                {!isDoctor && (
+                  <>
+                    <p className="text-sm mb-2">{r.notes}</p>
+                    <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
+                  </>
+                )}
+                {isDoctor && (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex gap-2 flex-wrap">
+                      <input type="date" className="border rounded px-2 py-1" value={r.date} onChange={e=>saveRecord(r.id, { date: e.target.value })} />
+                      <input className="border rounded px-2 py-1 w-56" value={r.notes} onChange={e=>saveRecord(r.id, { notes: e.target.value })} />
+                      <input className="border rounded px-2 py-1 w-56" value={r.prescription} onChange={e=>saveRecord(r.id, { prescription: e.target.value })} />
+                    </div>
+                    <div>
+                      <button onClick={()=>deleteRecord(r.id)} className="text-red-600 text-xs">Delete</button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
+            {records.length === 0 && !loading && (
+              <li className="text-xs text-gray-400">No records yet.</li>
+            )}
           </ul>
         </section>
       </main>

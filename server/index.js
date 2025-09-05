@@ -276,12 +276,13 @@ async function getDoctorPayload(req){
 // GET bookings: public gets last 10 (limited); doctor gets up to 500
 app.get('/api/bookings', async (req, res) => {
   const doctor = await getDoctorPayload(req);
+  const q = (req.query.q || '').toString().trim().toLowerCase();
   try {
     if (db) {
       let query = db.collection('bookings').orderBy('createdAt', 'desc');
       query = query.limit(doctor ? 500 : 10);
       const snap = await query.get();
-      const items = snap.docs.map(d => {
+      let items = snap.docs.map(d => {
         const data = d.data();
         return {
           id: d.id,
@@ -298,6 +299,16 @@ app.get('/api/bookings', async (req, res) => {
           emailStatus: data.emailStatus
         };
       });
+      if (q) {
+        items = items.filter(b => (
+          (b.name && b.name.toLowerCase().includes(q)) ||
+          (b.email && b.email.toLowerCase().includes(q)) ||
+          (b.phone && b.phone.toLowerCase().includes(q)) ||
+          (b.notes && b.notes.toLowerCase().includes(q)) ||
+          (b.date && b.date.toLowerCase().includes(q)) ||
+          (b.time && b.time.toLowerCase().includes(q))
+        ));
+      }
       // If public, strip email & phone partially for privacy (example: keep last 3 digits)
       if(!doctor){
         return res.json(items.map(b => ({
@@ -309,7 +320,17 @@ app.get('/api/bookings', async (req, res) => {
       return res.json(items);
     } else {
       // Memory fallback
-      const items = [...bookings].sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      let items = [...bookings].sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      if (q) {
+        items = items.filter(b => (
+          (b.name && b.name.toLowerCase().includes(q)) ||
+          (b.email && b.email.toLowerCase().includes(q)) ||
+          (b.phone && b.phone.toLowerCase().includes(q)) ||
+          (b.notes && b.notes.toLowerCase().includes(q)) ||
+          (b.date && b.date.toLowerCase().includes(q)) ||
+          (b.time && b.time.toLowerCase().includes(q))
+        ));
+      }
       return res.json(doctor ? items : items.slice(0,10));
     }
   } catch(err){
@@ -469,11 +490,20 @@ app.delete('/api/bookings/:id', requireDoctor, async (req, res) => {
 });
 
 // Patients (Firestore persistence) – secure
-app.get('/api/patients', requireDoctor, async (_req,res)=>{
+app.get('/api/patients', requireDoctor, async (req,res)=>{
   if(!db) return res.json([]);
   try {
     const snap = await db.collection('patients').orderBy('createdAt','desc').limit(500).get();
-    const items = snap.docs.map(d=> ({ id:d.id, ...d.data() }));
+    let items = snap.docs.map(d=> ({ id:d.id, ...d.data() }));
+    const q = (req.query.q || '').toString().trim().toLowerCase();
+    if (q) {
+      items = items.filter(p => (
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.email && p.email.toLowerCase().includes(q)) ||
+        (p.city && p.city.toLowerCase().includes(q)) ||
+        (p.mobile && p.mobile.toLowerCase().includes(q))
+      ));
+    }
     res.json(items);
   } catch(err){
     const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
@@ -481,6 +511,140 @@ app.get('/api/patients', requireDoctor, async (_req,res)=>{
   }
 });
 
+// Get a single patient
+app.get('/api/patients/:id', requireDoctor, async (req, res) => {
+  if(!db) return res.status(503).json({ error:'Database disabled' });
+  try {
+    const ref = db.collection('patients').doc(req.params.id);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error:'Not found' });
+    res.json({ id: snap.id, ...snap.data() });
+  } catch(err){
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to load patient', details: msg});
+  }
+});
+
+// Update patient
+app.put('/api/patients/:id', requireDoctor, async (req, res) => {
+  if (!db) return res.status(503).json({ error:'Database disabled'});
+  const id = req.params.id;
+  const data = req.body || {};
+  try {
+    await db.collection('patients').doc(id).set(data, { merge: true });
+    const snap = await db.collection('patients').doc(id).get();
+    res.json({ id, ...snap.data() });
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to update patient', details: msg });
+  }
+});
+
+// Delete patient (and optionally their records)
+app.delete('/api/patients/:id', requireDoctor, async (req, res) => {
+  if (!db) return res.status(503).json({ error:'Database disabled'});
+  const id = req.params.id;
+  try {
+    // delete patient doc
+    const ref = db.collection('patients').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: 'Not found' });
+    await ref.delete();
+    // try delete records subcollection (best effort)
+    try {
+      const recs = await db.collection('patients').doc(id).collection('records').get();
+      const batch = db.batch();
+      recs.forEach(d => batch.delete(d.ref));
+      if (!recs.empty) await batch.commit();
+    } catch {}
+    res.json({ id });
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to delete patient', details: msg });
+  }
+});
+
+// Patient records (doctor only)
+app.get('/api/patients/:id/records', requireDoctor, async (req, res) => {
+  if (!db) return res.json([]);
+  const id = req.params.id;
+  try {
+    const snap = await db.collection('patients').doc(id).collection('records').orderBy('createdAt','desc').get();
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt && d.data().createdAt.toDate ? d.data().createdAt.toDate().toISOString() : new Date().toISOString() }));
+    res.json(items);
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to load records', details: msg });
+  }
+});
+
+app.post('/api/patients/:id/records', requireDoctor, async (req, res) => {
+  if (!db) return res.status(503).json({ error:'Database disabled'});
+  const id = req.params.id;
+  const payload = req.body || {};
+  try {
+    const ref = await db.collection('patients').doc(id).collection('records').add({
+      date: payload.date || new Date().toISOString().slice(0,10),
+      notes: payload.notes || '',
+      prescription: payload.prescription || '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    const snap = await ref.get();
+    res.status(201).json({ id: ref.id, ...snap.data(), createdAt: new Date().toISOString() });
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to add record', details: msg });
+  }
+});
+
+app.put('/api/patients/:pid/records/:rid', requireDoctor, async (req, res) => {
+  if (!db) return res.status(503).json({ error:'Database disabled'});
+  const { pid, rid } = req.params;
+  try {
+    await db.collection('patients').doc(pid).collection('records').doc(rid).set(req.body || {}, { merge: true });
+    const snap = await db.collection('patients').doc(pid).collection('records').doc(rid).get();
+    res.json({ id: rid, ...snap.data() });
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to update record', details: msg });
+  }
+});
+
+app.delete('/api/patients/:pid/records/:rid', requireDoctor, async (req, res) => {
+  if (!db) return res.status(503).json({ error:'Database disabled'});
+  const { pid, rid } = req.params;
+  try {
+    await db.collection('patients').doc(pid).collection('records').doc(rid).delete();
+    res.json({ id: rid });
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to delete record', details: msg });
+  }
+});
+
+// Update booking
+app.put('/api/bookings/:id', requireDoctor, async (req, res) => {
+  const id = req.params.id;
+  try {
+    if (db) {
+      const ref = db.collection('bookings').doc(id);
+      const snap = await ref.get();
+      if(!snap.exists) return res.status(404).json({ error:'Not found' });
+      await ref.set(req.body || {}, { merge: true });
+      const updated = await ref.get();
+      const data = updated.data();
+      return res.json({ id, ...data, createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString() });
+    } else {
+      const idx = bookings.findIndex(b => b.id === id);
+      if(idx === -1) return res.status(404).json({ error:'Not found' });
+      bookings[idx] = { ...bookings[idx], ...(req.body || {}) };
+      return res.json(bookings[idx]);
+    }
+  } catch (err) {
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    return res.status(500).json({ error:'Failed to update booking', details: msg });
+  }
+});
 // Lightweight diagnostics endpoint (no secrets)
 app.get('/api/_diag', (_req,res)=>{
   res.json({
