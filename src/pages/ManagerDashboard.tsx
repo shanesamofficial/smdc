@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, LogOut, Moon, Sun } from 'lucide-react';
+import { Plus, LogOut, Moon, Sun, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const DoctorDashboard: React.FC = () => {
@@ -63,6 +63,7 @@ const DoctorDashboard: React.FC = () => {
   };
 
   const [dark, setDark] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const inputClass = (extra: string = '') => dark
     ? `w-full rounded-lg px-3 py-2 text-sm bg-[#182125] border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-green/50 ${extra}`
     : `w-full rounded-lg px-3 py-2 text-sm border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/40 ${extra}`;
@@ -86,6 +87,15 @@ const DoctorDashboard: React.FC = () => {
     } finally { setBookingsLoading(false); }
   };
   useEffect(()=>{ loadBookings(); }, []);
+
+  // Mobile menu scroll lock
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [mobileMenuOpen]);
 
   const deleteBooking = async (id:string) => {
     if(!confirm('Delete this booking?')) return;
@@ -143,7 +153,10 @@ const DoctorDashboard: React.FC = () => {
   const btnTab = (key: typeof activeTab, label: string, count?: number) => (
     <button
       key={key}
-      onClick={()=>setActiveTab(key)}
+      onClick={() => {
+        setActiveTab(key);
+        setMobileMenuOpen(false); // Close mobile menu on selection
+      }}
       className={`w-full flex items-center justify-between text-sm px-3 py-2 rounded-lg border transition ${activeTab===key
         ? 'bg-brand-green text-white border-brand-green'
         : dark ? 'border-transparent text-gray-300 hover:bg-gray-700/40' : 'border-transparent text-gray-600 hover:bg-gray-100'}`}
@@ -347,23 +360,76 @@ const DoctorDashboard: React.FC = () => {
 
   return (
     <div className={dark ? 'min-h-screen flex flex-col bg-[#0f1517] text-gray-100' : 'min-h-screen flex flex-col bg-gray-50 text-gray-900'}>
-      <header className={dark ? 'bg-[#121c1f] border-b border-gray-700 px-6 md:px-8 py-4 flex items-center gap-4' : 'bg-white border-b px-6 md:px-8 py-4 flex items-center gap-4'}>
-  <h1 className="text-xl font-semibold flex-1">Doctor Dashboard</h1>
+      <header className={dark ? 'bg-[#121c1f] border-b border-gray-700 px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4' : 'bg-white border-b px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4'}>
+        {/* Mobile menu button */}
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className={`md:hidden w-9 h-9 inline-flex items-center justify-center rounded-md border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+          aria-label="Open menu"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+        
+        <h1 className="text-lg md:text-xl font-semibold flex-1">Doctor Dashboard</h1>
         <button onClick={()=>setDark(d=>!d)} className={dark? 'w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-600 text-gray-200 hover:bg-gray-700' : 'w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100'} aria-label="Toggle dashboard dark mode">
           {dark? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
         <Link to="/" className="text-sm text-brand-green font-medium">Site</Link>
-        <button onClick={logout} className="flex items-center gap-2 text-sm font-medium text-red-600 hover:underline"><LogOut className="w-4 h-4"/>Logout</button>
+        <button onClick={logout} className="hidden md:flex items-center gap-2 text-sm font-medium text-red-600 hover:underline"><LogOut className="w-4 h-4"/>Logout</button>
       </header>
-      <div className="flex-1 flex w-full max-w-7xl mx-auto gap-6 px-6 md:px-8 py-8">
-        <aside className={`w-56 shrink-0 h-fit rounded-xl border ${sidebarBase} p-4 flex flex-col gap-2 sticky top-24 self-start`}> 
+
+      {/* Mobile menu overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+          <div className={`absolute left-0 top-0 bottom-0 w-72 ${dark ? 'bg-[#121c1f] border-gray-700' : 'bg-white border-gray-200'} border-r shadow-xl`}>
+            <div className="p-4 border-b border-gray-200/30 flex items-center justify-between">
+              <h2 className="font-semibold">Navigation</h2>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className={`w-8 h-8 inline-flex items-center justify-center rounded-md ${dark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 flex flex-col gap-2">
+              <p className="text-[10px] font-semibold tracking-wide text-gray-500 mb-1">SECTIONS</p>
+              {btnTab('new','New Patient')}
+              {btnTab('patients','Patients', patients.length)}
+              {btnTab('bookings','Bookings', bookings.length)}
+              
+              <div className="mt-6 pt-4 border-t border-gray-200/30">
+                <button 
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }} 
+                  className="w-full flex items-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg"
+                >
+                  <LogOut className="w-4 h-4"/>Logout
+                </button>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-200/30 text-[10px] text-gray-400">
+                © {new Date().getFullYear()} Dr. Shawn's
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex w-full max-w-7xl mx-auto gap-6 px-4 md:px-6 lg:px-8 py-4 md:py-8">
+        {/* Desktop sidebar */}
+        <aside className={`hidden md:flex w-56 shrink-0 h-fit rounded-xl border ${sidebarBase} p-4 flex-col gap-2 sticky top-24 self-start`}> 
           <p className="text-[10px] font-semibold tracking-wide text-gray-500 mb-1">SECTIONS</p>
           {btnTab('new','New Patient')}
           {btnTab('patients','Patients', patients.length)}
           {btnTab('bookings','Bookings', bookings.length)}
           <div className="mt-4 pt-4 border-t border-gray-200/30 text-[10px] text-gray-400">© {new Date().getFullYear()} Dr. Shawn's</div>
         </aside>
-        <main className="flex-1 flex flex-col gap-8 pb-20">
+        
+        <main className="flex-1 flex flex-col gap-6 md:gap-8 pb-20">
           {activeTab === 'new' && renderNewPatient()}
           {activeTab === 'patients' && renderPatients()}
           {activeTab === 'bookings' && renderBookings()}

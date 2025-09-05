@@ -95,9 +95,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (existing) {
           setUser(existing);
         } else {
-          const newUser: User = { id: fbUser.uid, name: fbUser.displayName || fbUser.email || 'User', email: fbUser.email || '', role: 'patient' };
+          // Check if this Firebase user is the doctor based on email
+          const doctorEmail = process.env.VITE_DOCTOR_EMAIL || 'doctor@example.com'; // You'll need to set this
+          const role: Role = fbUser.email === doctorEmail ? 'manager' : 'patient';
+          const newUser: User = { 
+            id: fbUser.uid, 
+            name: fbUser.displayName || fbUser.email || 'User', 
+            email: fbUser.email || '', 
+            role 
+          };
           const next = [...freshUsers, newUser];
-            persistUsers(next);
+          persistUsers(next);
           setUser(newUser);
         }
       } else {
@@ -151,6 +159,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     firebaseAuth.signOut();
     setUser(null);
     localStorage.removeItem(LS_CURRENT);
+    localStorage.removeItem('doctor_token'); // Clear doctor token on logout
   };
 
   const createPatient = async (payload: { name: string; email: string; age?: number; gender?: string; mobile?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string; emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string; }) => {
