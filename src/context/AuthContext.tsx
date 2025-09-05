@@ -31,7 +31,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   doctorLogin: (email: string, password: string) => Promise<void>;
-  signup: (data: { name: string; email: string; password: string }) => Promise<void>;
+  signup: (data: { name: string; email: string; password: string }) => Promise<void | { pending: boolean; message: string }>;
   resetPassword: (email:string) => Promise<void>;
   logout: () => void;
   createPatient: (data: {
@@ -100,31 +100,66 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const tokenResult = await fbUser.getIdTokenResult();
             console.log('User claims:', tokenResult.claims); // Debug log
             const isDoctor = tokenResult.claims.role === 'doctor';
-            const role: Role = isDoctor ? 'manager' : 'patient';
             
-            console.log('User role determined:', role); // Debug log
-            
-            const newUser: User = { 
-              id: fbUser.uid, 
-              name: fbUser.displayName || fbUser.email || 'User', 
-              email: fbUser.email || '', 
-              role 
-            };
-            const next = [...freshUsers, newUser];
-            persistUsers(next);
-            setUser(newUser);
+            if (isDoctor) {
+              const newUser: User = { 
+                id: fbUser.uid, 
+                name: fbUser.displayName || fbUser.email || 'Doctor', 
+                email: fbUser.email || '', 
+                role: 'manager' 
+              };
+              const next = [...freshUsers, newUser];
+              persistUsers(next);
+              setUser(newUser);
+            } else {
+              // For regular users, check approval status
+              const isApproved = tokenResult.claims.approved === true;
+              
+              if (!isApproved) {
+                // Check user approval status from server
+                try {
+                  const response = await fetch(`/api/users/status/${fbUser.uid}`);
+                  const statusData = await response.json();
+                  
+                  if (statusData.status === 'pending') {
+                    // Sign out user and show pending message
+                    await firebaseAuth.signOut();
+                    alert('Your account is pending approval. Please wait for doctor approval before logging in.');
+                    setLoading(false);
+                    return;
+                  } else if (statusData.status === 'rejected') {
+                    // Sign out user and show rejection message
+                    await firebaseAuth.signOut();
+                    alert('Your account has been rejected. Please contact the clinic for more information.');
+                    setLoading(false);
+                    return;
+                  }
+                } catch (error) {
+                  console.error('Error checking user status:', error);
+                  // If can't check status, sign out for safety
+                  await firebaseAuth.signOut();
+                  alert('Unable to verify account status. Please try again later.');
+                  setLoading(false);
+                  return;
+                }
+              }
+              
+              // User is approved, create user object
+              const newUser: User = { 
+                id: fbUser.uid, 
+                name: fbUser.displayName || fbUser.email || 'User', 
+                email: fbUser.email || '', 
+                role: 'patient' 
+              };
+              const next = [...freshUsers, newUser];
+              persistUsers(next);
+              setUser(newUser);
+            }
           } catch (error) {
             console.error('Error getting user claims:', error);
-            // Fallback to patient role if claims fail
-            const newUser: User = { 
-              id: fbUser.uid, 
-              name: fbUser.displayName || fbUser.email || 'User', 
-              email: fbUser.email || '', 
-              role: 'patient' 
-            };
-            const next = [...freshUsers, newUser];
-            persistUsers(next);
-            setUser(newUser);
+            // For safety, sign out if there's an error
+            await firebaseAuth.signOut();
+            alert('Authentication error. Please try logging in again.');
           }
         }
       } else {
@@ -167,11 +202,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (name) {
       await updateProfile(cred.user, { displayName: name });
     }
-    const role: Role = users.length === 0 ? 'manager' : 'patient';
-    const newUser: User = { id: cred.user.uid, name: name || email, email, role };
-    const next = [...users, newUser];
-    persistUsers(next);
-    setUser(newUser);
+
+    // Register user for approval instead of immediate access
+    try {
+      const response = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: cred.user.uid,
+          name: name || email,
+          email: email
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit registration for approval');
+      }
+
+      // Sign out immediately since account needs approval
+      await firebaseAuth.signOut();
+      
+      // Return success message for pending approval
+      return { 
+        pending: true, 
+        message: 'Account created successfully! Please wait for doctor approval before logging in.' 
+      };
+    } catch (error) {
+      // If registration fails, delete the Firebase auth account
+      await cred.user.delete();
+      throw error;
+    }
   };
 
   const logout = () => {

@@ -33,7 +33,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
     setLoading(true);
     try {
       if (isSignup) {
-        await signup({ name, email, password });
+        const result = await signup({ name, email, password });
+        if (result && 'pending' in result) {
+          // Show success message and close modal
+          alert(result.message);
+          onClose();
+          return;
+        }
       } else {
         await login(email, password);
       }

@@ -64,9 +64,19 @@ function verifyToken(token){
 
 function requireDoctor(req,res,next){
   const auth = req.headers.authorization || '';
+  console.log('Authorization header:', auth ? 'Present' : 'Missing');
+  
   const token = auth.startsWith('Bearer ')? auth.slice(7): '';
+  console.log('Extracted token:', token ? 'Token found' : 'No token');
+  
   const payload = verifyToken(token);
-  if(!payload || payload.role !== 'doctor') return res.status(401).json({ error:'Unauthorized'});
+  console.log('Token payload:', payload);
+  
+  if(!payload || payload.role !== 'doctor') {
+    console.log('Authorization failed - payload:', payload);
+    return res.status(401).json({ error:'Unauthorized'});
+  }
+  
   req.user = payload;
   next();
 }
@@ -125,6 +135,100 @@ app.post('/api/auth/set-doctor-claims', requireDoctor, async (req,res)=>{
   } catch(err) {
     console.error('[auth] set claims failed:', err);
     res.status(500).json({ error: 'Failed to set claims' });
+  }
+});
+
+// User management endpoints
+// Create pending user registration
+app.post('/api/users/register', async (req, res) => {
+  const { uid, name, email } = req.body || {};
+  if (!uid || !email) return res.status(400).json({ error: 'Missing uid or email' });
+  if (!admin.apps.length) return res.status(503).json({ error: 'Firebase admin not initialized' });
+
+  try {
+    const userDoc = {
+      uid,
+      name: name || email,
+      email,
+      status: 'pending', // pending, approved, rejected
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+      approvedBy: null
+    };
+
+    await db.collection('users').doc(uid).set(userDoc);
+    res.json({ success: true, message: 'User registration submitted for approval' });
+  } catch (err) {
+    console.error('[users] registration failed:', err);
+    res.status(500).json({ error: 'Failed to create user registration' });
+  }
+});
+
+// Get pending users (doctor only)
+app.get('/api/users/pending', requireDoctor, async (req, res) => {
+  if (!admin.apps.length) return res.status(503).json({ error: 'Firebase admin not initialized' });
+
+  try {
+    const snapshot = await db.collection('users').where('status', '==', 'pending').get();
+    const pendingUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ users: pendingUsers });
+  } catch (err) {
+    console.error('[users] fetch pending failed:', err);
+    res.status(500).json({ error: 'Failed to fetch pending users' });
+  }
+});
+
+// Approve/reject user (doctor only)
+app.post('/api/users/approve', requireDoctor, async (req, res) => {
+  const { uid, approve } = req.body || {};
+  if (!uid || typeof approve !== 'boolean') {
+    return res.status(400).json({ error: 'Missing uid or approve flag' });
+  }
+  if (!admin.apps.length) return res.status(503).json({ error: 'Firebase admin not initialized' });
+
+  try {
+    const status = approve ? 'approved' : 'rejected';
+    const updateData = {
+      status,
+      approvedAt: new Date().toISOString(),
+      approvedBy: req.user.email
+    };
+
+    await db.collection('users').doc(uid).update(updateData);
+    
+    // If approving, set patient custom claims
+    if (approve) {
+      await admin.auth().setCustomUserClaims(uid, { role: 'patient', approved: true });
+    }
+
+    res.json({ success: true, message: `User ${status} successfully` });
+  } catch (err) {
+    console.error('[users] approval failed:', err);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// Check user approval status
+app.get('/api/users/status/:uid', async (req, res) => {
+  const { uid } = req.params;
+  if (!uid) return res.status(400).json({ error: 'Missing uid' });
+  if (!admin.apps.length) return res.status(503).json({ error: 'Firebase admin not initialized' });
+
+  try {
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      return res.json({ status: 'not_found' });
+    }
+    
+    const userData = userDoc.data();
+    res.json({ 
+      status: userData.status, 
+      createdAt: userData.createdAt,
+      approvedAt: userData.approvedAt 
+    });
+  } catch (err) {
+    console.error('[users] status check failed:', err);
+    res.status(500).json({ error: 'Failed to check user status' });
   }
 });
 

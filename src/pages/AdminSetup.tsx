@@ -65,11 +65,15 @@ const AdminSetup: React.FC = () => {
 
     try {
       const token = localStorage.getItem('doctor_token');
+      console.log('Retrieved token:', token ? 'Token found' : 'No token found');
+      
       if (!token) {
         setMessage('Error: No doctor token found. Please login with doctor credentials first.');
+        setLoading(false);
         return;
       }
 
+      console.log('Sending request to set claims for UID:', uid.trim());
       const res = await fetch('/api/auth/set-doctor-claims', {
         method: 'POST',
         headers: {
@@ -80,6 +84,7 @@ const AdminSetup: React.FC = () => {
       });
 
       const data = await res.json();
+      console.log('Server response:', data);
       
       if (res.ok) {
         setMessage('✅ Doctor claims set successfully! The user can now access the dashboard via Firebase Auth.');
@@ -87,6 +92,7 @@ const AdminSetup: React.FC = () => {
         setMessage(`❌ Error: ${data.error || 'Failed to set claims'}`);
       }
     } catch (error) {
+      console.error('Network error:', error);
       setMessage(`❌ Network error: ${error}`);
     } finally {
       setLoading(false);

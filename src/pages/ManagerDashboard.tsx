@@ -67,7 +67,7 @@ const DoctorDashboard: React.FC = () => {
   const inputClass = (extra: string = '') => dark
     ? `w-full rounded-lg px-3 py-2 text-sm bg-[#182125] border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-green/50 ${extra}`
     : `w-full rounded-lg px-3 py-2 text-sm border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-green/40 ${extra}`;
-  const [activeTab, setActiveTab] = useState<'new' | 'patients' | 'bookings'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'patients' | 'bookings' | 'approvals'>('new');
   // Bookings state
   interface Booking { id:string; name:string; email:string; phone:string; date:string; time:string; service:string; notes:string; createdAt:string; emailStatus?:string }
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -87,6 +87,49 @@ const DoctorDashboard: React.FC = () => {
     } finally { setBookingsLoading(false); }
   };
   useEffect(()=>{ loadBookings(); }, []);
+
+  // Pending users state
+  interface PendingUser { id: string; uid: string; name: string; email: string; status: string; createdAt: string; }
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState<string|null>(null);
+
+  const loadPendingUsers = async () => {
+    setPendingLoading(true); setPendingError(null);
+    try {
+      const res = await fetch('/api/users/pending', { 
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined 
+      });
+      if(!res.ok) throw new Error('Failed to load pending users');
+      const data = await res.json();
+      setPendingUsers(data.users);
+    } catch(err:any) {
+      setPendingError(err.message);
+    } finally { setPendingLoading(false); }
+  };
+
+  const approveUser = async (uid: string, approve: boolean) => {
+    try {
+      const res = await fetch('/api/users/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ uid, approve })
+      });
+      
+      if(!res.ok) throw new Error('Failed to update user status');
+      
+      // Refresh pending users list
+      await loadPendingUsers();
+      setSuccess(`User ${approve ? 'approved' : 'rejected'} successfully`);
+    } catch(err: any) {
+      setError(err.message);
+    }
+  };
+
+  useEffect(()=>{ loadPendingUsers(); }, []);
 
   // Mobile menu scroll lock
   useEffect(() => {
@@ -358,6 +401,61 @@ const DoctorDashboard: React.FC = () => {
     </div>
   );
 
+  const renderApprovals = () => (
+    <div className={dark ? 'bg-[#121c1f] rounded-xl border border-gray-700 p-6 overflow-hidden' : 'bg-white rounded-xl border p-6 overflow-hidden'}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-semibold">Pending User Approvals</h2>
+        <button onClick={loadPendingUsers} className="text-xs font-medium text-brand-green hover:underline disabled:opacity-50" disabled={pendingLoading}>Refresh</button>
+      </div>
+      <div className="overflow-x-auto rounded-xl">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 text-xs border-b">
+              <th className="py-2 px-3">Name</th>
+              <th className="py-2 px-3">Email</th>
+              <th className="py-2 px-3">Registered</th>
+              <th className="py-2 px-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pendingUsers.map(user => (
+              <tr key={user.uid} className="border-b last:border-none">
+                <td className="py-2 px-3 font-medium">{user.name}</td>
+                <td className="py-2 px-3">{user.email}</td>
+                <td className="py-2 px-3 text-xs text-gray-500 whitespace-nowrap" title={new Date(user.createdAt).toLocaleString()}>
+                  {relativeTime(user.createdAt)}
+                </td>
+                <td className="py-2 px-3 text-xs space-x-2">
+                  <button 
+                    onClick={() => approveUser(user.uid, true)} 
+                    className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-full font-medium transition"
+                  >
+                    Approve
+                  </button>
+                  <button 
+                    onClick={() => approveUser(user.uid, false)} 
+                    className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-full font-medium transition"
+                  >
+                    Reject
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {pendingUsers.length === 0 && !pendingLoading && (
+              <tr><td colSpan={4} className="py-6 text-center text-gray-400 text-xs">No pending approvals</td></tr>
+            )}
+            {pendingLoading && (
+              <tr><td colSpan={4} className="py-6 text-center text-gray-400 text-xs">Loading…</td></tr>
+            )}
+            {pendingError && (
+              <tr><td colSpan={4} className="py-6 text-center text-red-500 text-xs">{pendingError}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
     <div className={dark ? 'min-h-screen flex flex-col bg-[#0f1517] text-gray-100' : 'min-h-screen flex flex-col bg-gray-50 text-gray-900'}>
       <header className={dark ? 'bg-[#121c1f] border-b border-gray-700 px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4' : 'bg-white border-b px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4'}>
@@ -398,6 +496,7 @@ const DoctorDashboard: React.FC = () => {
               {btnTab('new','New Patient')}
               {btnTab('patients','Patients', patients.length)}
               {btnTab('bookings','Bookings', bookings.length)}
+              {btnTab('approvals','User Approvals', pendingUsers.length)}
               
               <div className="mt-6 pt-4 border-t border-gray-200/30">
                 <button 
@@ -426,6 +525,7 @@ const DoctorDashboard: React.FC = () => {
           {btnTab('new','New Patient')}
           {btnTab('patients','Patients', patients.length)}
           {btnTab('bookings','Bookings', bookings.length)}
+          {btnTab('approvals','User Approvals', pendingUsers.length)}
           <div className="mt-4 pt-4 border-t border-gray-200/30 text-[10px] text-gray-400">© {new Date().getFullYear()} Dr. Shawn's</div>
         </aside>
         
@@ -433,6 +533,7 @@ const DoctorDashboard: React.FC = () => {
           {activeTab === 'new' && renderNewPatient()}
           {activeTab === 'patients' && renderPatients()}
           {activeTab === 'bookings' && renderBookings()}
+          {activeTab === 'approvals' && renderApprovals()}
         </main>
       </div>
     </div>
