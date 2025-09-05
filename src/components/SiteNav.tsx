@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { Menu, X, Home, Info, Images, Layers, Phone, ChevronRight, LayoutDashboard } from 'lucide-react';
 import AuthModal from './AuthModal';
 import { useAuth } from '../context/AuthContext';
+import { firebaseAuth } from '../firebase';
 
 interface NavItem { to:string; label:string; icon: React.ComponentType<{className?:string}> }
 const navItems: NavItem[] = [
@@ -62,8 +63,17 @@ const SiteNav: React.FC<{ compact?: boolean }>=({ compact })=>{
     const fetchPending = async () => {
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('doctor_token') : null;
-        if (!token) { setPendingCount(0); return; }
-        const res = await fetch('/api/users/pending', { headers: { Authorization: `Bearer ${token}` } });
+        let headers: Record<string,string> = {};
+        if (token) {
+          headers = { Authorization: `Bearer ${token}` };
+        } else if (firebaseAuth.currentUser) {
+          try {
+            const idt = await firebaseAuth.currentUser.getIdToken();
+            headers = { Authorization: `Bearer ${idt}` };
+          } catch {}
+        }
+        if (!headers.Authorization) { setPendingCount(0); return; }
+        const res = await fetch('/api/users/pending', { headers });
         if (!res.ok) { setPendingCount(0); return; }
         const data = await res.json();
         setPendingCount(Array.isArray(data.users) ? data.users.length : 0);

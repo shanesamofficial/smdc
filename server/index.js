@@ -63,23 +63,35 @@ function verifyToken(token){
   } catch { return null; }
 }
 
-function requireDoctor(req,res,next){
+async function requireDoctor(req,res,next){
   const auth = req.headers.authorization || '';
   console.log('Authorization header:', auth ? 'Present' : 'Missing');
   
   const token = auth.startsWith('Bearer ')? auth.slice(7): '';
   console.log('Extracted token:', token ? 'Token found' : 'No token');
   
+  // First try our HMAC token
   const payload = verifyToken(token);
-  console.log('Token payload:', payload);
-  
-  if(!payload || payload.role !== 'doctor') {
-    console.log('Authorization failed - payload:', payload);
-    return res.status(401).json({ error:'Unauthorized'});
+  if (payload && payload.role === 'doctor') {
+    req.user = payload;
+    return next();
   }
-  
-  req.user = payload;
-  next();
+
+  // Fallback: try Firebase ID token (if Admin initialized)
+  if (admin.apps.length) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
+      if (decoded && decoded.role === 'doctor') {
+        req.user = { email: decoded.email, role: 'doctor', uid: decoded.uid };
+        return next();
+      }
+    } catch (e) {
+      console.log('[auth] Firebase ID token verify failed');
+    }
+  }
+
+  console.log('Authorization failed - neither HMAC nor Firebase doctor token accepted');
+  return res.status(401).json({ error:'Unauthorized'});
 }
 
 // Mailer setup (optional if env provided)
@@ -247,16 +259,23 @@ app.get('/api/auth/validate', (req,res)=>{
 });
 
 // Helper: extract optional doctor token without enforcing
-function getDoctorPayload(req){
+async function getDoctorPayload(req){
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ')? auth.slice(7): '';
   const payload = verifyToken(token);
-  return payload && payload.role === 'doctor' ? payload : null;
+  if (payload && payload.role === 'doctor') return payload;
+  if (admin.apps.length && token) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
+      if (decoded && decoded.role === 'doctor') return { email: decoded.email, role: 'doctor', uid: decoded.uid };
+    } catch {}
+  }
+  return null;
 }
 
 // GET bookings: public gets last 10 (limited); doctor gets up to 500
 app.get('/api/bookings', async (req, res) => {
-  const doctor = getDoctorPayload(req);
+  const doctor = await getDoctorPayload(req);
   try {
     if (db) {
       let query = db.collection('bookings').orderBy('createdAt', 'desc');

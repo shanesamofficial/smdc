@@ -75,9 +75,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchPatients = async () => {
     try {
-      const token = localStorage.getItem('doctor_token');
-      if(!token) return; // only doctor fetch
-      const res = await fetch('/api/patients', { headers:{ 'Authorization': `Bearer ${token}` }});
+      const hmac = localStorage.getItem('doctor_token');
+      let headers: Record<string,string> = {};
+      if (hmac) headers = { Authorization: `Bearer ${hmac}` };
+      else if (firebaseAuth.currentUser) {
+        try {
+          const idt = await firebaseAuth.currentUser.getIdToken();
+          headers = { Authorization: `Bearer ${idt}` };
+        } catch {}
+      }
+      if(!headers.Authorization) return; // only doctor fetch
+      const res = await fetch('/api/patients', { headers });
       if(!res.ok) return;
       const data: User[] = await res.json();
       // merge into local user store (avoid duplicates) so existing code relying on users works
@@ -101,9 +109,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const tokenResult = await fbUser.getIdTokenResult();
             console.log('User claims:', tokenResult.claims); // Debug log
             const isDoctor = tokenResult.claims.role === 'doctor';
-            
-            // Check if this user should be auto-promoted to doctor
-            const doctorEmail = process.env.REACT_APP_DOCTOR_EMAIL || 'shahidrshawn@gmail.com'; // fallback
+
+            // Check if this user should be auto-promoted to doctor (Vite env)
+            const doctorEmail = (import.meta as any).env?.VITE_DOCTOR_EMAIL || 'shahidrshawn@gmail.com'; // fallback
             const shouldBeDoctor = fbUser.email?.toLowerCase() === doctorEmail.toLowerCase();
             
             if (shouldBeDoctor && !isDoctor) {
@@ -160,20 +168,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             } else {
               // For regular users
               if (requireApproval) {
-                // Approval workflow enabled
-                const isApproved = tokenResult.claims.approved === true;
-                if (!isApproved) {
+                // Approval workflow enabled: allow only if approved claim or server marks approved
+                const hasApprovedClaim = tokenResult.claims.approved === true;
+                let approved = hasApprovedClaim;
+                if (!approved) {
                   try {
                     const response = await fetch(`/api/users/status/${fbUser.uid}`);
                     const statusData = await response.json();
-                    if (statusData.status === 'pending') {
+                    approved = statusData.status === 'approved';
+                    if (!approved) {
                       await firebaseAuth.signOut();
-                      alert('Your account is pending approval. Please wait for doctor approval before logging in.');
-                      setLoading(false);
-                      return;
-                    } else if (statusData.status === 'rejected') {
-                      await firebaseAuth.signOut();
-                      alert('Your account has been rejected. Please contact the clinic for more information.');
+                      const msg = statusData.status === 'pending'
+                        ? 'Your account is pending approval. Please wait for doctor approval before logging in.'
+                        : statusData.status === 'rejected'
+                          ? 'Your account has been rejected. Please contact the clinic for more information.'
+                          : 'Your account is not approved yet. Please wait for approval.';
+                      alert(msg);
                       setLoading(false);
                       return;
                     }
@@ -213,13 +223,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsub();
   }, []);
 
-  // if doctor logged (token present) fetch patients on mount & every 60s
+  // If doctor logged (via HMAC or Firebase), fetch patients on mount & every 60s
   useEffect(()=>{
-    if(localStorage.getItem('doctor_token')){
+    const hasHmac = !!localStorage.getItem('doctor_token');
+    const isDoctor = user?.role === 'manager';
+    if (hasHmac || isDoctor) {
       fetchPatients();
       const id = setInterval(fetchPatients, 60000);
       return ()=> clearInterval(id);
     }
+    return;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
@@ -293,9 +306,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const createPatient = async (payload: { name: string; email: string; age?: number; gender?: string; mobile?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string; emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string; }) => {
-    const token = localStorage.getItem('doctor_token');
-    if(!token) throw new Error('Not authorized');
-    const res = await fetch('/api/patients', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
+    const hmac = localStorage.getItem('doctor_token');
+    let headers: Record<string,string> = { 'Content-Type': 'application/json' };
+    if (hmac) headers.Authorization = `Bearer ${hmac}`;
+    else if (firebaseAuth.currentUser) {
+      try {
+        const idt = await firebaseAuth.currentUser.getIdToken();
+        headers.Authorization = `Bearer ${idt}`;
+      } catch {}
+    }
+    if(!headers.Authorization) throw new Error('Not authorized');
+    const res = await fetch('/api/patients', { method:'POST', headers, body: JSON.stringify(payload) });
     if(!res.ok){
       const err = await res.json().catch(()=>({error:'Create failed'}));
       throw new Error(err.error || 'Create patient failed');

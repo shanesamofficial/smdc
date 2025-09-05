@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Plus, LogOut, Moon, Sun, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { firebaseAuth } from '../firebase';
 
 const DoctorDashboard: React.FC = () => {
   const { user, patients, createPatient, logout } = useAuth();
@@ -27,6 +28,20 @@ const DoctorDashboard: React.FC = () => {
   // Access control: allow if role manager OR valid doctor token present
   const token = typeof window !== 'undefined' ? localStorage.getItem('doctor_token') : null;
   const authorized = (user && user.role === 'manager') || !!token;
+
+  // Build auth header: prefer HMAC doctor_token, fallback to Firebase ID token
+  const getAuthHeader = async (): Promise<Record<string, string>> => {
+    const t = typeof window !== 'undefined' ? localStorage.getItem('doctor_token') : null;
+    if (t) return { Authorization: `Bearer ${t}` };
+    try {
+      const u = firebaseAuth.currentUser;
+      if (u) {
+        const idt = await u.getIdToken();
+        return { Authorization: `Bearer ${idt}` };
+      }
+    } catch {}
+    return {};
+  };
   if(!authorized){
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="p-8 rounded-xl border bg-white shadow-sm text-center space-y-4 max-w-sm"><h1 className="text-xl font-semibold">Restricted</h1><p className="text-sm text-gray-500">Doctor access only. Please log in as doctor.</p><a href="/" className="inline-block text-sm font-medium text-brand-green hover:underline">Go Home</a></div></div>;
   }
@@ -79,7 +94,8 @@ const DoctorDashboard: React.FC = () => {
   const loadBookings = async () => {
     setBookingsLoading(true); setBookingsError(null);
     try {
-      const res = await fetch('/api/bookings', { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      const headers = await getAuthHeader();
+      const res = await fetch('/api/bookings', { headers: Object.keys(headers).length ? headers : undefined });
       if(!res.ok) throw new Error('Failed to load');
       setBookings(await res.json());
     } catch(err:any) {
@@ -97,14 +113,9 @@ const DoctorDashboard: React.FC = () => {
   const loadPendingUsers = async () => {
     setPendingLoading(true); setPendingError(null);
     try {
-      const currentToken = localStorage.getItem('doctor_token');
-      if (!currentToken) {
-        throw new Error('No doctor token found');
-      }
-      
-      const res = await fetch('/api/users/pending', { 
-        headers: { Authorization: `Bearer ${currentToken}` }
-      });
+      const headers = await getAuthHeader();
+      if (!headers.Authorization) throw new Error('Not authorized');
+      const res = await fetch('/api/users/pending', { headers });
       if(!res.ok) throw new Error('Failed to load pending users');
       const data = await res.json();
       setPendingUsers(data.users);
@@ -115,17 +126,11 @@ const DoctorDashboard: React.FC = () => {
 
   const approveUser = async (uid: string, approve: boolean) => {
     try {
-      const currentToken = localStorage.getItem('doctor_token');
-      if (!currentToken) {
-        throw new Error('No doctor token found');
-      }
-      
+      const headers = await getAuthHeader();
+      if (!headers.Authorization) throw new Error('Not authorized');
       const res = await fetch('/api/users/approve', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${currentToken}`
-        },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ uid, approve })
       });
       
@@ -153,7 +158,8 @@ const DoctorDashboard: React.FC = () => {
   const deleteBooking = async (id:string) => {
     if(!confirm('Delete this booking?')) return;
     try {
-      const res = await fetch(`/api/bookings/${id}` , { method:'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      const headers = await getAuthHeader();
+      const res = await fetch(`/api/bookings/${id}` , { method:'DELETE', headers: Object.keys(headers).length ? headers : undefined });
       if(!res.ok) throw new Error('Failed to delete');
       setBookings(b=>b.filter(x=>x.id!==id));
     } catch(err:any) {
