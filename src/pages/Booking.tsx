@@ -17,7 +17,12 @@ const Booking: React.FC = () => {
   const load = async () => {
     try {
       const res = await fetch('/api/bookings');
-      setList(await res.json());
+      if(!res.ok){
+        // Non-OK (e.g., 401 if server still old). Safely ignore.
+        return;
+      }
+      const data = await res.json();
+      if(Array.isArray(data)) setList(data);
     } catch { /* ignore */ }
   };
   useEffect(()=>{ load(); }, []);
@@ -50,7 +55,7 @@ const Booking: React.FC = () => {
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="w-full max-w-6xl mx-auto px-6 md:px-10 pt-20 md:pt-28 pb-20 flex flex-col gap-14">
+      <section className="w-full max-w-6xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-20 flex flex-col gap-14">
         <header className="space-y-6">
           <div className="text-4xl md:text-5xl font-extrabold tracking-tight">
             <BlurText text="Book an Appointment" delay={70} animateBy="words" direction="top" />
@@ -130,7 +135,7 @@ const Booking: React.FC = () => {
             <div className="p-6 rounded-2xl border border-gray-200 bg-white shadow-sm">
               <h4 className="font-semibold mb-2 text-brand-dark">Recent Requests</h4>
               <ul className="space-y-4 max-h-[320px] overflow-auto pr-1 text-sm">
-                {list.map(b => (
+                {Array.isArray(list) && list.length > 0 && list.map(b => (
                   <li key={b.id} className="border rounded-lg p-3 flex flex-col gap-1">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{b.name}</span>
@@ -139,7 +144,7 @@ const Booking: React.FC = () => {
                     <p className="text-xs text-gray-600">{b.date} @ {b.time}</p>
                   </li>
                 ))}
-                {list.length === 0 && <li className="text-xs text-gray-400">No bookings yet.</li>}
+                {(!Array.isArray(list) || list.length === 0) && <li className="text-xs text-gray-400">No bookings yet.</li>}
               </ul>
             </div>
             <div className="p-6 rounded-2xl border border-gray-200 bg-white shadow-sm text-xs leading-relaxed text-gray-600">

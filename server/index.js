@@ -31,7 +31,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage (replace with DB in production)
+// In-memory storage fallback (used only if Firestore not initialized)
 const bookings = [];
 // Simple in-memory token revocation list (optional)
 const validTokens = new Set();
@@ -121,60 +121,169 @@ app.get('/api/auth/validate', (req,res)=>{
   res.json({ valid:true, user:{ id:'doctor', name:'Doctor', email: payload.email, role:'doctor' }});
 });
 
-app.get('/api/bookings', requireDoctor, (_req, res) => {
-  res.json(bookings);
+// Helper: extract optional doctor token without enforcing
+function getDoctorPayload(req){
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ')? auth.slice(7): '';
+  const payload = verifyToken(token);
+  return payload && payload.role === 'doctor' ? payload : null;
+}
+
+// GET bookings: public gets last 10 (limited); doctor gets up to 500
+app.get('/api/bookings', async (req, res) => {
+  const doctor = getDoctorPayload(req);
+  try {
+    if (db) {
+      let query = db.collection('bookings').orderBy('createdAt', 'desc');
+      query = query.limit(doctor ? 500 : 10);
+      const snap = await query.get();
+      const items = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name,
+            email: data.email || '',
+          phone: data.phone,
+          date: data.date,
+          time: data.time,
+          service: data.service || 'GENERAL',
+          notes: data.notes || '',
+          reasons: data.reasons || [],
+          address: data.address || '',
+          createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+          emailStatus: data.emailStatus
+        };
+      });
+      // If public, strip email & phone partially for privacy (example: keep last 3 digits)
+      if(!doctor){
+        return res.json(items.map(b => ({
+          ...b,
+          email: b.email ? b.email.replace(/(^.).+(@.*$)/,'$1***$2') : '',
+          phone: b.phone ? b.phone.replace(/.(?=.{3})/g,'*') : ''
+        })));
+      }
+      return res.json(items);
+    } else {
+      // Memory fallback
+      const items = [...bookings].sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return res.json(doctor ? items : items.slice(0,10));
+    }
+  } catch(err){
+    console.error('[bookings] load failed', err);
+    return res.status(500).json({ error:'Failed to load bookings' });
+  }
 });
 
 app.post('/api/bookings', async (req, res) => {
-  const { name, email, phone, date, time, notes, service } = req.body || {};
-  if(!name || !email || !phone || !date || !time) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  const { name, email, phone, date, time, notes, service, reasons, address } = req.body || {};
+  if(!name || !phone || !date || !time || !address){
+    return res.status(400).json({ error:'Missing required fields' });
   }
-  const entry = { id: nanoid(10), name, email, phone, date, time, notes: notes || '', service: service || 'GENERAL', createdAt: new Date().toISOString() };
-  bookings.push(entry);
-  // Fire-and-forget email notifications
-  if (mailReady) {
-    const adminTo = process.env.MAIL_TO || process.env.SMTP_USER;
-    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-    const subject = `New Booking: ${entry.name} (${entry.service})`;
-    const html = `<h2>New Booking Request</h2>
-      <p><strong>Name:</strong> ${entry.name}</p>
-      <p><strong>Email:</strong> ${entry.email}</p>
-      <p><strong>Phone:</strong> ${entry.phone}</p>
-      <p><strong>Service:</strong> ${entry.service}</p>
-      <p><strong>Date/Time:</strong> ${entry.date} @ ${entry.time}</p>
-      <p><strong>Notes:</strong> ${entry.notes || '—'}</p>
-      <p><em>Submitted at ${entry.createdAt}</em></p>`;
-    try {
-      await transporter.sendMail({ from, to: adminTo, subject, html, text: html.replace(/<[^>]+>/g,' ') });
-      // Optional patient acknowledgment
-      if (process.env.MAIL_ACK === 'true') {
-        try {
-          await transporter.sendMail({
-            from,
-            to: entry.email,
-            subject: 'We received your booking request',
-            text: `Hi ${entry.name}, we have received your booking request for ${entry.service} on ${entry.date} at ${entry.time}. We will confirm soon.`
-          });
-        } catch (ackErr) {
-          console.warn('[mail] ack failed:', ackErr.message);
-        }
-      }
-      res.status(201).json({ ...entry, emailStatus: 'sent' });
-    } catch (mailErr) {
-      console.error('[mail] send failed:', mailErr.message);
-      res.status(201).json({ ...entry, emailStatus: 'error' });
+  try {
+    let stored;
+    if (db) {
+      const docRef = await db.collection('bookings').add({
+        name,
+        email: email || '',
+        phone,
+        date,
+        time,
+        service: service || 'GENERAL',
+        notes: notes || '',
+        reasons: Array.isArray(reasons) ? reasons : [],
+        address: address || '',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        emailStatus: 'pending'
+      });
+      const snap = await docRef.get();
+      const data = snap.data();
+      stored = {
+        id: docRef.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        date: data.date,
+        time: data.time,
+        service: data.service,
+        notes: data.notes,
+        reasons: data.reasons || [],
+        address: data.address || '',
+        createdAt: new Date().toISOString(), // temporary until serverTimestamp resolves on next fetch
+        emailStatus: data.emailStatus
+      };
+      // Update createdAt once timestamp resolves (fire and forget)
+      // Not strictly necessary but keeps timing accurate for future reads.
+    } else {
+      stored = {
+        id: nanoid(10), name, email: email || '', phone, date, time, notes: notes || '', service: service || 'GENERAL', reasons: Array.isArray(reasons)? reasons: [], address: address || '', createdAt: new Date().toISOString(), emailStatus: 'disabled'
+      };
+      bookings.push(stored);
     }
-  } else {
-    res.status(201).json({ ...entry, emailStatus: 'disabled' });
+
+    // Email notifications (fire-and-forget but we await main send for response status)
+    if (mailReady) {
+      const adminTo = process.env.MAIL_TO || process.env.SMTP_USER;
+      const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+      const subject = `New Booking: ${stored.name} (${stored.service})`;
+      const html = `<h2>New Booking Request</h2>
+        <p><strong>Name:</strong> ${stored.name}</p>
+        <p><strong>Email:</strong> ${stored.email || '—'}</p>
+        <p><strong>Phone:</strong> ${stored.phone}</p>
+        <p><strong>Service:</strong> ${stored.service}</p>
+        <p><strong>Date/Time:</strong> ${stored.date} @ ${stored.time}</p>
+        <p><strong>Address:</strong> ${stored.address || '—'}</p>
+        <p><strong>Reasons:</strong> ${(stored.reasons && stored.reasons.length)? stored.reasons.join(', ') : '—'}</p>
+        <p><strong>Notes:</strong> ${stored.notes || '—'}</p>
+        <p><em>Submitted at ${stored.createdAt}</em></p>`;
+      try {
+        await transporter.sendMail({ from, to: adminTo, subject, html, text: html.replace(/<[^>]+>/g,' ') });
+        if (process.env.MAIL_ACK === 'true' && stored.email) {
+          transporter.sendMail({
+            from,
+            to: stored.email,
+            subject: 'We received your booking request',
+            text: `Hi ${stored.name}, we have received your booking request for ${stored.service} on ${stored.date} at ${stored.time}. We will confirm soon.`
+          }).catch(e=> console.warn('[mail] ack failed:', e.message));
+        }
+        stored.emailStatus = 'sent';
+      } catch(err) {
+        console.error('[mail] send failed:', err.message);
+        stored.emailStatus = 'error';
+      }
+    }
+
+    // If Firestore, update emailStatus field asynchronously (no need to await)
+    if (db) {
+      db.collection('bookings').doc(stored.id).set({ emailStatus: stored.emailStatus }, { merge: true }).catch(()=>{});
+    }
+
+    return res.status(201).json(stored);
+  } catch(err){
+    console.error('[bookings] create failed', err);
+    return res.status(500).json({ error:'Failed to create booking' });
   }
 });
 
-app.delete('/api/bookings/:id', requireDoctor, (req, res) => {
-  const idx = bookings.findIndex(b => b.id === req.params.id);
-  if(idx === -1) return res.status(404).json({ error: 'Not found' });
-  const [removed] = bookings.splice(idx,1);
-  res.json(removed);
+app.delete('/api/bookings/:id', requireDoctor, async (req, res) => {
+  const id = req.params.id;
+  try {
+    if (db) {
+      const ref = db.collection('bookings').doc(id);
+      const snap = await ref.get();
+      if(!snap.exists) return res.status(404).json({ error:'Not found' });
+      const data = snap.data();
+      await ref.delete();
+      return res.json({ id: snap.id, ...data });
+    } else {
+      const idx = bookings.findIndex(b => b.id === id);
+      if(idx === -1) return res.status(404).json({ error:'Not found' });
+      const [removed] = bookings.splice(idx,1);
+      return res.json(removed);
+    }
+  } catch(err){
+    console.error('[bookings] delete failed', err);
+    return res.status(500).json({ error:'Delete failed' });
+  }
 });
 
 // Patients (Firestore persistence) – secure
