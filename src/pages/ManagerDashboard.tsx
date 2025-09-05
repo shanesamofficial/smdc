@@ -97,8 +97,13 @@ const DoctorDashboard: React.FC = () => {
   const loadPendingUsers = async () => {
     setPendingLoading(true); setPendingError(null);
     try {
+      const currentToken = localStorage.getItem('doctor_token');
+      if (!currentToken) {
+        throw new Error('No doctor token found');
+      }
+      
       const res = await fetch('/api/users/pending', { 
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined 
+        headers: { Authorization: `Bearer ${currentToken}` }
       });
       if(!res.ok) throw new Error('Failed to load pending users');
       const data = await res.json();
@@ -110,11 +115,16 @@ const DoctorDashboard: React.FC = () => {
 
   const approveUser = async (uid: string, approve: boolean) => {
     try {
+      const currentToken = localStorage.getItem('doctor_token');
+      if (!currentToken) {
+        throw new Error('No doctor token found');
+      }
+      
       const res = await fetch('/api/users/approve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${currentToken}`
         },
         body: JSON.stringify({ uid, approve })
       });

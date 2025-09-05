@@ -99,6 +99,51 @@ const AdminSetup: React.FC = () => {
     }
   };
 
+  const setCurrentUserAsDoctor = async () => {
+    if (!user) {
+      setMessage('❌ No Firebase user logged in. Please login first.');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const token = localStorage.getItem('doctor_token');
+      console.log('Retrieved token:', token ? 'Token found' : 'No token found');
+      
+      if (!token) {
+        setMessage('Error: No doctor token found. Please login with doctor credentials first.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Setting claims for current user UID:', user.id);
+      const res = await fetch('/api/auth/set-doctor-claims', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ uid: user.id })
+      });
+
+      const data = await res.json();
+      console.log('Server response:', data);
+      
+      if (res.ok) {
+        setMessage('✅ Current user set as doctor successfully! You can now access the dashboard via Firebase Auth.');
+      } else {
+        setMessage(`❌ Error: ${data.error || 'Failed to set claims'}`);
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      setMessage(`❌ Network error: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-20 px-4">
       <div className="max-w-md mx-auto bg-white rounded-xl shadow-sm border p-6">
@@ -185,6 +230,22 @@ const AdminSetup: React.FC = () => {
             >
               {loading ? 'Setting Claims...' : 'Set Doctor Claims'}
             </button>
+
+            {user && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-medium mb-2">Quick Setup</h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Make the currently logged-in Firebase user ({user.email}) a doctor
+                </p>
+                <button
+                  onClick={setCurrentUserAsDoctor}
+                  disabled={loading}
+                  className="w-full bg-purple-600 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-50"
+                >
+                  {loading ? 'Setting Claims...' : 'Make Current User Doctor'}
+                </button>
+              </div>
+            )}
 
             {message && (
               <div className={`text-sm p-3 rounded-lg ${

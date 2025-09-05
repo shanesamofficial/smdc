@@ -101,7 +101,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.log('User claims:', tokenResult.claims); // Debug log
             const isDoctor = tokenResult.claims.role === 'doctor';
             
-            if (isDoctor) {
+            // Check if this user should be auto-promoted to doctor
+            const doctorEmail = process.env.REACT_APP_DOCTOR_EMAIL || 'shahidrshawn@gmail.com'; // fallback
+            const shouldBeDoctor = fbUser.email?.toLowerCase() === doctorEmail.toLowerCase();
+            
+            if (shouldBeDoctor && !isDoctor) {
+              // Auto-set doctor claims for the doctor's email
+              try {
+                console.log('Auto-setting doctor claims for:', fbUser.email);
+                const doctorToken = localStorage.getItem('doctor_token');
+                if (doctorToken) {
+                  const response = await fetch('/api/auth/set-doctor-claims', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${doctorToken}`
+                    },
+                    body: JSON.stringify({ uid: fbUser.uid })
+                  });
+                  
+                  if (response.ok) {
+                    console.log('Doctor claims set successfully');
+                    // Refresh the token to get updated claims
+                    await fbUser.getIdToken(true);
+                    const newTokenResult = await fbUser.getIdTokenResult();
+                    const newIsDoctor = newTokenResult.claims.role === 'doctor';
+                    
+                    if (newIsDoctor) {
+                      const newUser: User = { 
+                        id: fbUser.uid, 
+                        name: fbUser.displayName || fbUser.email || 'Doctor', 
+                        email: fbUser.email || '', 
+                        role: 'manager' 
+                      };
+                      const next = [...freshUsers, newUser];
+                      persistUsers(next);
+                      setUser(newUser);
+                      return;
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Failed to auto-set doctor claims:', error);
+              }
+            }
+            
+            if (isDoctor || shouldBeDoctor) {
               const newUser: User = { 
                 id: fbUser.uid, 
                 name: fbUser.displayName || fbUser.email || 'Doctor', 
