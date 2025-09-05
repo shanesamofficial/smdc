@@ -19,6 +19,35 @@ import Portfolio from './pages/Portfolio';
 import SiteNav from './components/SiteNav';
 import Booking from './pages/Booking';
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean; error?: Error}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error('React Error Boundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+          <h1>Something went wrong.</h1>
+          <details style={{ whiteSpace: 'pre-wrap' }}>
+            {this.state.error && this.state.error.toString()}
+          </details>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const Landing: React.FC = () => (
   <>
     <SiteNav />
@@ -33,23 +62,37 @@ const Landing: React.FC = () => (
   </>
 );
 
-const App: React.FC = () => (
-  <AuthProvider>
-    <BrowserRouter>
-      <Routes>
-  <Route path="/" element={<Landing />} />
-  <Route path="/doctor" element={<DoctorDashboard />} />
-  <Route path="/member" element={<MemberHome />} />
-  <Route path="/patient/:id" element={<PatientRecord />} />
-  <Route path="/contact" element={<Contact />} />
-  <Route path="/about" element={<About />} />
-  <Route path="/portfolio" element={<Portfolio />} />
-  <Route path="/services" element={<ServicesPage />} />
-  <Route path="/booking" element={<Booking />} />
-  <Route path="/manager" element={<Navigate to="/doctor" replace />} />
-      </Routes>
-    </BrowserRouter>
-  </AuthProvider>
-);
+const App: React.FC = () => {
+  console.log('App component rendering...');
+  
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/doctor" element={<DoctorDashboard />} />
+            <Route path="/member" element={<MemberHome />} />
+            <Route path="/patient/:id" element={<PatientRecord />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/booking" element={<Booking />} />
+            <Route path="/manager" element={<Navigate to="/doctor" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+};
 
-createRoot(document.getElementById('root')!).render(<App />);
+console.log('Creating React root...');
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  console.error('Root element not found!');
+} else {
+  console.log('Root element found, creating app...');
+  createRoot(rootElement).render(<App />);
+  console.log('App rendered successfully');
+}
