@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_STORAGE_BUCKET?: string;
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID?: string;
   readonly VITE_REQUIRE_APPROVAL?: string; // 'true' to enable approval workflow
+  readonly VITE_DOCTOR_EMAIL?: string; // optional: doctor's email for auto-claim UX
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;
