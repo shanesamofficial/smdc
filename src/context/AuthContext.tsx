@@ -95,20 +95,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (existing) {
           setUser(existing);
         } else {
-          // Get user's custom claims to check if they're a doctor
-          const tokenResult = await fbUser.getIdTokenResult();
-          const isDoctor = tokenResult.claims.role === 'doctor';
-          const role: Role = isDoctor ? 'manager' : 'patient';
-          
-          const newUser: User = { 
-            id: fbUser.uid, 
-            name: fbUser.displayName || fbUser.email || 'User', 
-            email: fbUser.email || '', 
-            role 
-          };
-          const next = [...freshUsers, newUser];
-          persistUsers(next);
-          setUser(newUser);
+          try {
+            // Get user's custom claims to check if they're a doctor
+            const tokenResult = await fbUser.getIdTokenResult();
+            console.log('User claims:', tokenResult.claims); // Debug log
+            const isDoctor = tokenResult.claims.role === 'doctor';
+            const role: Role = isDoctor ? 'manager' : 'patient';
+            
+            console.log('User role determined:', role); // Debug log
+            
+            const newUser: User = { 
+              id: fbUser.uid, 
+              name: fbUser.displayName || fbUser.email || 'User', 
+              email: fbUser.email || '', 
+              role 
+            };
+            const next = [...freshUsers, newUser];
+            persistUsers(next);
+            setUser(newUser);
+          } catch (error) {
+            console.error('Error getting user claims:', error);
+            // Fallback to patient role if claims fail
+            const newUser: User = { 
+              id: fbUser.uid, 
+              name: fbUser.displayName || fbUser.email || 'User', 
+              email: fbUser.email || '', 
+              role: 'patient' 
+            };
+            const next = [...freshUsers, newUser];
+            persistUsers(next);
+            setUser(newUser);
+          }
         }
       } else {
         setUser(null);

@@ -18,6 +18,7 @@ import About from './pages/About';
 import Portfolio from './pages/Portfolio';
 import SiteNav from './components/SiteNav';
 import Booking from './pages/Booking';
+import AdminSetup from './pages/AdminSetup';
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean; error?: Error}> {
   constructor(props: {children: React.ReactNode}) {
@@ -79,6 +80,7 @@ const App: React.FC = () => {
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/booking" element={<Booking />} />
+            <Route path="/admin-setup" element={<AdminSetup />} />
             <Route path="/manager" element={<Navigate to="/doctor" replace />} />
           </Routes>
         </BrowserRouter>
