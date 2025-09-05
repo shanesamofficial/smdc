@@ -66,6 +66,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [users, setUsers] = useState<User[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const requireApproval = (import.meta.env.VITE_REQUIRE_APPROVAL || 'false') === 'true';
 
   const persistUsers = (next: User[]) => {
     setUsers(next);
@@ -157,35 +158,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               persistUsers(next);
               setUser(newUser);
             } else {
-              // For regular users, check approval status
-              const isApproved = tokenResult.claims.approved === true;
-              
-              if (!isApproved) {
-                // Check user approval status from server
-                try {
-                  const response = await fetch(`/api/users/status/${fbUser.uid}`);
-                  const statusData = await response.json();
-                  
-                  if (statusData.status === 'pending') {
-                    // Sign out user and show pending message
+              // For regular users
+              if (requireApproval) {
+                // Approval workflow enabled
+                const isApproved = tokenResult.claims.approved === true;
+                if (!isApproved) {
+                  try {
+                    const response = await fetch(`/api/users/status/${fbUser.uid}`);
+                    const statusData = await response.json();
+                    if (statusData.status === 'pending') {
+                      await firebaseAuth.signOut();
+                      alert('Your account is pending approval. Please wait for doctor approval before logging in.');
+                      setLoading(false);
+                      return;
+                    } else if (statusData.status === 'rejected') {
+                      await firebaseAuth.signOut();
+                      alert('Your account has been rejected. Please contact the clinic for more information.');
+                      setLoading(false);
+                      return;
+                    }
+                  } catch (error) {
+                    console.error('Error checking user status:', error);
                     await firebaseAuth.signOut();
-                    alert('Your account is pending approval. Please wait for doctor approval before logging in.');
-                    setLoading(false);
-                    return;
-                  } else if (statusData.status === 'rejected') {
-                    // Sign out user and show rejection message
-                    await firebaseAuth.signOut();
-                    alert('Your account has been rejected. Please contact the clinic for more information.');
+                    alert('Unable to verify account status. Please try again later.');
                     setLoading(false);
                     return;
                   }
-                } catch (error) {
-                  console.error('Error checking user status:', error);
-                  // If can't check status, sign out for safety
-                  await firebaseAuth.signOut();
-                  alert('Unable to verify account status. Please try again later.');
-                  setLoading(false);
-                  return;
                 }
               }
               
@@ -247,35 +245,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (name) {
       await updateProfile(cred.user, { displayName: name });
     }
+    if (requireApproval) {
+      // Register user for approval instead of immediate access (kept but gated)
+      try {
+        const response = await fetch('/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: cred.user.uid,
+            name: name || email,
+            email: email
+          })
+        });
 
-    // Register user for approval instead of immediate access
-    try {
-      const response = await fetch('/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: cred.user.uid,
-          name: name || email,
-          email: email
-        })
-      });
+        if (!response.ok) {
+          throw new Error('Failed to submit registration for approval');
+        }
 
-      if (!response.ok) {
-        throw new Error('Failed to submit registration for approval');
+        // Sign out immediately since account needs approval
+        await firebaseAuth.signOut();
+        
+        // Return success message for pending approval
+        return { 
+          pending: true, 
+          message: 'Account created successfully! Please wait for doctor approval before logging in.' 
+        };
+      } catch (error) {
+        // If registration fails, delete the Firebase auth account
+        await cred.user.delete();
+        throw error;
       }
-
-      // Sign out immediately since account needs approval
-      await firebaseAuth.signOut();
-      
-      // Return success message for pending approval
-      return { 
-        pending: true, 
-        message: 'Account created successfully! Please wait for doctor approval before logging in.' 
-      };
-    } catch (error) {
-      // If registration fails, delete the Firebase auth account
-      await cred.user.delete();
-      throw error;
+    } else {
+      // Immediate access: persist locally and keep user logged in
+      const role: Role = users.length === 0 ? 'manager' : 'patient';
+      const newUser: User = { id: cred.user.uid, name: name || email, email, role };
+      const next = [...users, newUser];
+      persistUsers(next);
+      setUser(newUser);
     }
   };
 
