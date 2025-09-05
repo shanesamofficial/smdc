@@ -98,18 +98,20 @@ async function requireDoctor(req,res,next){
 async function requirePatient(req, res, next){
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ')? auth.slice(7): '';
-  if (!admin.apps.length || !token) return res.status(401).json({ error: 'Unauthorized' });
+  if (!token) return res.status(401).json({ error: 'Unauthorized: missing token' });
+  if (!admin.apps.length) return res.status(503).json({ error: 'Service unavailable: auth not initialized' });
   try {
     const decoded = await admin.auth().verifyIdToken(token);
-    const isPatient = decoded && (decoded.role === 'patient' || decoded.role === undefined); // default users may have role undefined but approved
-    if (!isPatient || !decoded.email) return res.status(401).json({ error: 'Unauthorized' });
-    // Optionally enforce approved flag if present
-    if (decoded.hasOwnProperty('approved') && decoded.approved !== true) {
+    if (!decoded || !decoded.email) return res.status(401).json({ error: 'Unauthorized' });
+    const isPatient = decoded.role === 'patient' || typeof decoded.role === 'undefined' || decoded.role === null;
+    if (!isPatient) return res.status(403).json({ error: 'Forbidden' });
+    // Enforce approval only if the claim exists and is false
+    if (Object.prototype.hasOwnProperty.call(decoded, 'approved') && decoded.approved !== true) {
       return res.status(403).json({ error: 'Not approved' });
     }
     req.user = { email: decoded.email, role: 'patient', uid: decoded.uid };
     return next();
-  } catch {
+  } catch (e){
     return res.status(401).json({ error: 'Unauthorized' });
   }
 }
@@ -668,6 +670,28 @@ app.get('/api/me/records', requirePatient, async (req, res) => {
   } catch (err) {
     const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
     res.status(500).json({ error:'Failed to load records', details: msg });
+  }
+});
+
+// Optional: user's upcoming bookings (by email) for dashboard
+app.get('/api/me/bookings', requirePatient, async (req,res)=>{
+  if (!db) return res.json([]);
+  try{
+    const snap = await db.collection('bookings').where('email','==', req.user.email).orderBy('createdAt','desc').limit(20).get();
+    const list = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        date: data.date || '',
+        time: data.time || '',
+        notes: data.notes || '',
+        createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+      };
+    });
+    res.json(list);
+  } catch (err){
+    const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
+    res.status(500).json({ error:'Failed to load bookings', details: msg });
   }
 });
 

@@ -29,29 +29,29 @@ const PatientRecord: React.FC = () => {
     return {};
   };
 
-  useEffect(()=>{
-    (async ()=>{
-      setError(null); setLoading(true);
-      try{
-        if (isDoctor) {
-          if(!id) { setLoading(false); return; }
-          const headers = await getAuthHeader();
-          if (!headers.Authorization) { setLoading(false); return; }
-          const res = await fetch(`/api/patients/${id}/records`, { headers });
-          if (!res.ok) throw new Error('Failed to load records');
-          setRecords(await res.json());
-        } else {
-          // Patient: read-only records
-          const idt = await firebaseAuth.currentUser?.getIdToken();
-          if(!idt){ setLoading(false); return; }
-          const res = await fetch('/api/me/records', { headers: { Authorization: `Bearer ${idt}` }});
-          if (!res.ok) throw new Error('Failed to load records');
-          setRecords(await res.json());
-        }
-      }catch(e:any){ setError(e.message); }
-      finally{ setLoading(false); }
-    })();
-  }, [id, isDoctor]);
+  const loadRecords = async () => {
+    setError(null); setLoading(true);
+    try{
+      if (isDoctor) {
+        if(!id) { setLoading(false); return; }
+        const headers = await getAuthHeader();
+        if (!headers.Authorization) { setLoading(false); return; }
+        const res = await fetch(`/api/patients/${id}/records`, { headers });
+        if (!res.ok) throw new Error('Failed to load records');
+        setRecords(await res.json());
+      } else {
+        // Patient: read-only records
+        const idt = await firebaseAuth.currentUser?.getIdToken();
+        if(!idt){ setLoading(false); return; }
+        const res = await fetch('/api/me/records', { headers: { Authorization: `Bearer ${idt}` }});
+        if (!res.ok) throw new Error('Failed to load records');
+        setRecords(await res.json());
+      }
+    }catch(e:any){ setError(e.message); }
+    finally{ setLoading(false); }
+  };
+
+  useEffect(()=>{ loadRecords(); }, [id, isDoctor]);
 
   const [draft, setDraft] = useState({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'' });
   const addRecord = async () => {
@@ -145,7 +145,21 @@ const PatientRecord: React.FC = () => {
           <p className="mt-4 text-sm italic text-gray-500">(Demo data only - integrate real medical records securely.)</p>
         </div>
         <section className="bg-white rounded-xl p-6 border shadow-sm">
-          <h3 className="font-semibold mb-4">History & Prescriptions</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">History & Prescriptions</h3>
+            <button
+              type="button"
+              onClick={loadRecords}
+              disabled={loading || (!isDoctor && !firebaseAuth.currentUser)}
+              className={`text-xs font-medium px-3 py-1 rounded-full border ${loading? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'} border-gray-300 text-gray-700`}
+              aria-busy={loading}
+            >
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+          {!isDoctor && !firebaseAuth.currentUser && (
+            <p className="text-xs text-red-600 mb-3">Access denied. Please log in to view your records.</p>
+          )}
           {isDoctor && (
             <div className="mb-4 p-3 border rounded-lg bg-gray-50 text-sm flex flex-wrap gap-2">
               <input type="date" className="border rounded px-2 py-1" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})} />
