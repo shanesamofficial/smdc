@@ -88,16 +88,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const loaded = loadUsers();
     setUsers(loaded);
-    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
+    const unsub = onAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (fbUser) {
         const freshUsers = loadUsers();
         const existing = freshUsers.find(u => u.id === fbUser.uid);
         if (existing) {
           setUser(existing);
         } else {
-          // Check if this Firebase user is the doctor based on email
-          const doctorEmail = process.env.VITE_DOCTOR_EMAIL || 'doctor@example.com'; // You'll need to set this
-          const role: Role = fbUser.email === doctorEmail ? 'manager' : 'patient';
+          // Get user's custom claims to check if they're a doctor
+          const tokenResult = await fbUser.getIdTokenResult();
+          const isDoctor = tokenResult.claims.role === 'doctor';
+          const role: Role = isDoctor ? 'manager' : 'patient';
+          
           const newUser: User = { 
             id: fbUser.uid, 
             name: fbUser.displayName || fbUser.email || 'User', 

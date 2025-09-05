@@ -113,6 +113,21 @@ app.post('/api/auth/login', (req,res)=>{
   res.json({ token, user: { id:'doctor', name:'Doctor', email: allowedEmail, role:'doctor' }, expiresIn: TOKEN_TTL_MS });
 });
 
+// Set custom claims for doctor (call this once manually to setup)
+app.post('/api/auth/set-doctor-claims', requireDoctor, async (req,res)=>{
+  const { uid } = req.body || {};
+  if(!uid) return res.status(400).json({ error:'Missing uid' });
+  if(!admin.apps.length) return res.status(503).json({ error:'Firebase admin not initialized' });
+  
+  try {
+    await admin.auth().setCustomUserClaims(uid, { role: 'doctor' });
+    res.json({ success: true, message: 'Doctor claims set successfully' });
+  } catch(err) {
+    console.error('[auth] set claims failed:', err);
+    res.status(500).json({ error: 'Failed to set claims' });
+  }
+});
+
 app.get('/api/auth/validate', (req,res)=>{
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ')? auth.slice(7): '';
