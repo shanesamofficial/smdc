@@ -29,11 +29,11 @@ const About: React.FC = () => {
   return (
   <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="flex-1 w-full max-w-7xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-16 space-y-24">
+  <section className="flex-1 w-full max-w-7xl mx-auto px-6 md:px-10 pt-16 md:pt-20 pb-16 space-y-24">
   {/* Our Story */}
         <div className="space-y-8">
           <div className="text-4xl md:text-5xl font-extrabold tracking-tight">
-            <BlurText text="OUR STORY" delay={70} animateBy="words" direction="top" />
+            <BlurText text="OUR STORY" delay={70} animateBy="words" direction="top" className="text-brand-green" />
           </div>
             <div className="text-2xl md:text-4xl font-bold leading-tight">
               <BlurText text="CREATING SMILES" delay={120} animateBy="words" direction="bottom" />

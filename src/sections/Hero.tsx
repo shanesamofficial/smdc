@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 import AuthModal from '../components/AuthModal';
 
@@ -13,6 +13,7 @@ import implantImgMobile from '../assets/implant-m.jpg';
 import portfolioImg from '../assets/portfolio.jpg';
 import servicesImg from '../assets/services.jpg';
 import productsImg from '../assets/products.jpg';
+import smileIcon from '../assets/smile.svg';
 // Re-using hero implant illustration for placeholders; duplicate or replace with unique files later
 const service1 = portfolioImg;
 const service2 = servicesImg;
@@ -73,7 +74,7 @@ const Hero: React.FC = () => {
       ref={ref}
       className={`fullscreen-section section-card ${isInView ? 'in-view' : ''} bg-white md:bg-transparent md:pt-0`}
     >
-      <div className="max-w-[1400px] mx-auto w-full h-full flex flex-col md:block px-4 sm:px-6 pt-4 md:pt-8 pb-8 md:pb-16">
+  <div className="max-w-[1400px] mx-auto w-full h-full flex flex-col md:block px-4 sm:px-6 pt-2 md:pt-6 pb-8 md:pb-14">
   {/* (Global SiteNav is rendered above; internal hero nav removed) */}
 
         {/* Content Grid Desktop / Flex Mobile */}
@@ -81,7 +82,17 @@ const Hero: React.FC = () => {
           {/* Left content (heading + CTA) */}
             <div className="order-1 md:order-none md:col-span-5 flex flex-col gap-6 md:gap-8 text-brand-dark">
             <div className="relative pr-24 md:pr-0 text-4xl sm:text-5xl md:text-7xl lg:text-8xl leading-[1.05] tracking-tight" style={{ fontFamily: 'Poppins, Inter, ui-sans-serif, system-ui', fontWeight: 500 }}>
-              <span className="block">SMILE</span>
+              <span className="block">
+                {/* Keep line-height stable: icon is absolutely positioned within the line */}
+                <span className="relative inline-block align-baseline pr-12 sm:pr-14 md:pr-20 lg:pr-24">
+                  SMILE
+                  <img
+                    src={smileIcon}
+                    alt="smile"
+                    className="pointer-events-none select-none absolute top-1/2 -translate-y-1/2 right-0 w-10 sm:w-12 md:w-16 lg:w-20 h-auto"
+                  />
+                </span>
+              </span>
               <span className="block text-brand-green">BRIGHTER</span>
               <span className="block">WITH US.</span>
               {/* Mobile-only CTA positioned to the right of the title */}
@@ -95,7 +106,7 @@ const Hero: React.FC = () => {
                 Book Now
               </Link>
             </div>
-            <div className="hidden md:flex flex-col items-start gap-3">
+            <div className="hidden md:flex flex-wrap gap-4 items-center">
               <Link
                 to="/booking"
                 className="group inline-flex items-center gap-3 bg-brand-green text-white font-semibold text-base md:text-lg rounded-full pl-6 pr-8 md:pl-8 md:pr-10 py-4 md:py-5 shadow-card hover:shadow-lg transition-shadow"
@@ -107,17 +118,22 @@ const Hero: React.FC = () => {
               </Link>
               <a
                 href="tel:+919074530621"
-                className="inline-flex items-center bg-white rounded-md border border-gray-200 shadow-card px-8 py-8 text-xl font-semibold hover:shadow-md transition-shadow"
+                className="group inline-flex items-center gap-3 bg-white text-black font-semibold text-base md:text-lg rounded-full pl-6 pr-8 md:pl-8 md:pr-10 py-4 md:py-5 border border-gray-200 shadow-card hover:bg-gray-50 transition-colors hover:shadow-lg"
                 aria-label="Call Us"
               >
+                <span className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-brand-green flex items-center justify-center text-white group-hover:translate-y-[-2px] transition-transform">
+                  <Phone className="w-5 h-5 md:w-6 md:h-6" />
+                </span>
                 Call Us
               </a>
             </div>
+            {/* Desktop combined bar removed; Call Us now sits to the right of Book Now */}
+            {/* Removed temporary mobile call row under title */}
           </div>
 
           {/* Image Card */}
           <div className="order-2 md:order-none md:col-span-4 relative">
-            <div className="relative rounded-2xl md:rounded-3xl overflow-hidden aspect-[4/3] md:aspect-[2/2.965]">
+            <div className="relative rounded-2xl md:rounded-3xl overflow-hidden aspect-[4/3] md:aspect-[3/4.494]">
               {/* Base image (current) */}
               <picture>
                 <source media="(max-width: 767px)" srcSet={(slides[baseIndex] as any).imgMobile ?? slides[baseIndex].img} />
@@ -203,20 +219,23 @@ const Hero: React.FC = () => {
             </a>
           </div>
 
-          {/* Phone Bar (desktop separate, mobile combined) */}
+          {/* Phone Bar: Mobile combined bar (desktop uses the same design under Book Now) */}
           <div className="order-3 md:order-none md:col-span-12 flex flex-col md:block">
-            {/* Desktop original phone blocks */}
-            <div className="hidden md:flex items-stretch gap-6 pt-4">
-              <div className="bg-brand-green text-white rounded-md px-8 py-8 flex items-center justify-center text-2xl font-semibold shadow-card min-w-[320px]">
-                +91-9074530621
-              </div>
-            </div>
-            {/* Mobile combined bar */}
-            <div className="md:hidden mt-4 flex w-full rounded-xl overflow-hidden shadow-card text-sm font-semibold">
-              <div className="flex-1 bg-brand-green text-white px-3 py-4 text-center">
-                <span className="tracking-wide">+91-9074530621</span>
-              </div>
-              <button className="bg-white text-black px-6 py-4">CALL NOW</button>
+      <div className="md:hidden mt-4 flex w-full rounded-xl overflow-hidden shadow-card text-sm font-semibold">
+              <a
+                href="tel:+919074530621"
+        className="flex-1 bg-brand-green text-white px-4 py-4 text-center hover:opacity-95 text-base"
+                aria-label="Call +91 90745 30621"
+              >
+        <span className="tracking-wide">+91 90745 30621</span>
+              </a>
+              <a
+                href="tel:+919074530621"
+                className="bg-white text-black px-6 py-4"
+                aria-label="Call Us"
+              >
+                CALL NOW
+              </a>
             </div>
           </div>
 

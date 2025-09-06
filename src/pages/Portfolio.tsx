@@ -15,9 +15,9 @@ const Portfolio: React.FC = () => {
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="flex-1 w-full max-w-6xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-14">
+  <section className="flex-1 w-full max-w-6xl mx-auto px-6 md:px-10 pt-16 md:pt-20 pb-14">
         <div className="text-4xl font-extrabold tracking-tight mb-10">
-          <BlurText text="Portfolio" delay={90} animateBy="chars" direction="top" />
+          <BlurText text="PORTFOLIO" delay={90} animateBy="chars" direction="top" className="text-brand-green" />
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {cases.map(c=> (

@@ -22,10 +22,10 @@ const ServicesPage: React.FC = () => {
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="w-full max-w-7xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-8 md:pb-20 flex flex-col gap-14">
+  <section className="w-full max-w-7xl mx-auto px-6 md:px-10 pt-16 md:pt-20 pb-8 md:pb-20 flex flex-col gap-14">
         <header className="space-y-6">
           <div className="text-4xl md:text-5xl font-extrabold tracking-tight">
-            <BlurText text="Our Services" delay={70} animateBy="words" direction="top" />
+            <BlurText text="Our Services" delay={70} animateBy="words" direction="top" className="text-brand-green" />
           </div>
           <p className="max-w-3xl text-[15px] md:text-base text-gray-700 leading-relaxed">We combine precision dentistry, advanced biomaterials and patient‑focused protocols to deliver predictable clinical outcomes with long-term comfort and aesthetics. Explore our core treatment categories below—each tailored to individual needs following thorough diagnosis and transparent planning.</p>
         </header>

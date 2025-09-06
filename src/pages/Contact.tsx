@@ -8,7 +8,7 @@ const Contact: React.FC = () => {
   return (
     <main className="min-h-screen flex flex-col bg-white">
       <SiteNav />
-      <section className="flex-1 w-full max-w-6xl mx-auto px-6 md:px-10 pt-24 md:pt-28 pb-12 grid md:grid-cols-2 gap-12">
+  <section className="flex-1 w-full max-w-6xl mx-auto px-6 md:px-10 pt-16 md:pt-20 pb-12 grid md:grid-cols-2 gap-12">
         <div className="space-y-8">
           <div className="text-4xl font-extrabold tracking-tight">
             <BlurText text="CONTACT" delay={70} animateBy="chars" direction="top" />
