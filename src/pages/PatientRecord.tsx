@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Footer from '../components/Footer';
+import Loader from '../components/Loader';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { firebaseAuth } from '../firebase';
+import { firebaseAuth, firebaseStorage } from '../firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Placeholder for patient medical data structure
-interface OrthoDetails { stage?: string; appliances?: string; adjustments?: string; nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string }
+interface OrthoDetails { nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string }
 interface RecordEntry { id: string; date: string; notes: string; prescription: string; createdAt?: string; amount?: number; type?: 'general'|'orthodontic'; orthodontic?: OrthoDetails|null }
 
 const PatientRecord: React.FC = () => {
@@ -55,7 +57,7 @@ const PatientRecord: React.FC = () => {
   useEffect(()=>{ loadRecords(); }, [id, isDoctor]);
 
   const [draft, setDraft] = useState<{ date:string; notes:string; prescription:string; amount:number; type:'general'|'orthodontic'; orthodontic: OrthoDetails }>({ 
-    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { stage:'', appliances:'', adjustments:'', nextSteps:'', treatment:'', images: [], nextAppointmentDate:'', nextAppointmentNote:'' }
+    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { nextSteps:'', treatment:'', images: [], nextAppointmentDate:'', nextAppointmentNote:'' }
   });
   const addRecord = async () => {
     if(!id) return;
@@ -65,7 +67,7 @@ const PatientRecord: React.FC = () => {
       if(!res.ok) throw new Error('Failed to add record');
       const created = await res.json();
       setRecords(list => [created, ...list]);
-  setDraft({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type:'general', orthodontic: { stage:'', appliances:'', adjustments:'', nextSteps:'' } });
+  setDraft({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type:'general', orthodontic: { nextSteps:'' } });
     }catch(e:any){ alert(e.message); }
   };
   const saveRecord = async (rid: string, patch: Partial<RecordEntry>) => {
@@ -145,7 +147,6 @@ const PatientRecord: React.FC = () => {
               <p className="text-xs whitespace-pre-wrap">{patient.notes || '—'}</p>
             </div>
           </div>
-          <p className="mt-4 text-sm italic text-gray-500">(Demo data only - integrate real medical records securely.)</p>
         </div>
         <section className="bg-white rounded-xl p-6 border shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -198,18 +199,6 @@ const PatientRecord: React.FC = () => {
               {draft.type === 'orthodontic' && (
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 w-24">Stage</label>
-                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.stage} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, stage: e.target.value }})} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 w-24">Appliances</label>
-                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.appliances} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, appliances: e.target.value }})} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 w-24">Adjustments</label>
-                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.adjustments} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, adjustments: e.target.value }})} />
-                  </div>
-                  <div className="flex items-center gap-2">
                     <label className="text-xs text-gray-600 w-24">Next steps</label>
                     <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.nextSteps} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextSteps: e.target.value }})} />
                   </div>
@@ -218,12 +207,26 @@ const PatientRecord: React.FC = () => {
                     <input className="border rounded px-2 py-1 flex-1" placeholder="Treatment done" value={draft.orthodontic.treatment || ''} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, treatment: e.target.value }})} />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 w-24">Image URL</label>
-                    <input className="border rounded px-2 py-1 flex-1" placeholder="https://..." value={''} onChange={()=>{}} />
-                    <button type="button" className="text-xs text-brand-green" onClick={()=>{
-                      const url = prompt('Enter image URL (uploaded to Firebase Storage)');
-                      if(url){ setDraft({...draft, orthodontic: { ...draft.orthodontic, images: [...(draft.orthodontic.images||[]), url] }}) }
-                    }}>Add</button>
+                    <label className="text-xs text-gray-600 w-24">Images</label>
+                    <button type="button" className="text-xs text-brand-green" onClick={async ()=>{
+                      if (!firebaseStorage) { alert('Storage not configured'); return; }
+                      const input = document.createElement('input');
+                      input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                      input.onchange = async ()=>{
+                        if(!input.files || !input.files.length) return;
+                        const prefix = `patients/${id || 'unknown'}/draft`;
+                        const urls: string[] = [];
+                        for (const f of Array.from(input.files)){
+                          const path = `${prefix}/${Date.now()}_${f.name}`;
+                          const sref = storageRef(firebaseStorage, path);
+                          await uploadBytes(sref, f, { contentType: f.type });
+                          const url = await getDownloadURL(sref);
+                          urls.push(url);
+                        }
+                        setDraft(curr => ({...curr, orthodontic: { ...curr.orthodontic, images: [...(curr.orthodontic.images||[]), ...urls ]}}));
+                      };
+                      input.click();
+                    }}>Upload</button>
                   </div>
                   <div className="md:col-span-2">
                     {!!(draft.orthodontic.images && draft.orthodontic.images.length) && (
@@ -243,10 +246,6 @@ const PatientRecord: React.FC = () => {
                     <label className="text-xs text-gray-600 w-24">Next Appt</label>
                     <input type="date" className="border rounded px-2 py-1" min={new Date().toISOString().slice(0,10)} value={draft.orthodontic.nextAppointmentDate || ''} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextAppointmentDate: e.target.value }})} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600 w-24">Appt Notes</label>
-                    <input className="border rounded px-2 py-1 flex-1" placeholder="Appointment notes" value={draft.orthodontic.nextAppointmentNote || ''} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextAppointmentNote: e.target.value }})} />
-                  </div>
                 </div>
               )}
               <div className="md:col-span-2 flex justify-end">
@@ -254,7 +253,7 @@ const PatientRecord: React.FC = () => {
               </div>
             </div>
           )}
-          {loading && <p className="text-xs text-gray-500">Loading…</p>}
+          {loading && <Loader />}
           {error && <p className="text-xs text-red-600">{error}</p>}
           <ul className="space-y-4">
             {records.map(r => (
@@ -306,27 +305,29 @@ const PatientRecord: React.FC = () => {
                     </div>
                     {r.type === 'orthodontic' && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <input className="border rounded px-2 py-1" placeholder="Stage" value={r.orthodontic?.stage || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, stage: e.target.value } as any })} />
-                        <input className="border rounded px-2 py-1" placeholder="Appliances" value={r.orthodontic?.appliances || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, appliances: e.target.value } as any })} />
-                        <input className="border rounded px-2 py-1" placeholder="Adjustments" value={r.orthodontic?.adjustments || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, adjustments: e.target.value } as any })} />
                         <input className="border rounded px-2 py-1" placeholder="Next steps" value={r.orthodontic?.nextSteps || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextSteps: e.target.value } as any })} />
-                        <input className="border rounded px-2 py-1 md:col-span-2" placeholder="Treatment" value={r.orthodontic?.treatment || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, treatment: e.target.value } as any })} />
+                        <input className="border rounded px-2 py-1" placeholder="Treatment" value={r.orthodontic?.treatment || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, treatment: e.target.value } as any })} />
                         <div className="md:col-span-2">
                           <div className="flex items-center gap-2 mb-2">
-                            <input className="border rounded px-2 py-1 flex-1" placeholder="Add image URL (uploaded)" onKeyDown={(e)=>{
-                              if (e.key === 'Enter') {
-                                const input = e.target as HTMLInputElement;
-                                const val = input.value.trim();
-                                if (val) {
-                                  saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: [...(r.orthodontic?.images || []), val] } as any });
-                                  input.value='';
+                            <button type="button" className="text-xs text-brand-green" onClick={async ()=>{
+                              if (!firebaseStorage) { alert('Storage not configured'); return; }
+                              const input = document.createElement('input');
+                              input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                              input.onchange = async ()=>{
+                                if(!input.files || !input.files.length) return;
+                                const prefix = `patients/${id || 'unknown'}/records/${r.id}`;
+                                const urls: string[] = [];
+                                for (const f of Array.from(input.files)){
+                                  const path = `${prefix}/${Date.now()}_${f.name}`;
+                                  const sref = storageRef(firebaseStorage, path);
+                                  await uploadBytes(sref, f, { contentType: f.type });
+                                  const url = await getDownloadURL(sref);
+                                  urls.push(url);
                                 }
-                              }
-                            }} />
-                            <button type="button" className="text-xs text-brand-green" onClick={()=>{
-                              const url = prompt('Enter image URL');
-                              if(url){ saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: [...(r.orthodontic?.images||[]), url] } as any }); }
-                            }}>Add</button>
+                                saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: [...(r.orthodontic?.images || []), ...urls] } as any });
+                              };
+                              input.click();
+                            }}>Upload Images</button>
                           </div>
                           {!!(r.orthodontic?.images && r.orthodontic.images.length) && (
                             <div className="flex gap-2 flex-wrap">
@@ -346,7 +347,6 @@ const PatientRecord: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <input type="date" className="border rounded px-2 py-1" min={new Date().toISOString().slice(0,10)} value={r.orthodontic?.nextAppointmentDate || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextAppointmentDate: e.target.value } as any })} />
-                          <input className="border rounded px-2 py-1 flex-1" placeholder="Appointment notes" value={r.orthodontic?.nextAppointmentNote || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextAppointmentNote: e.target.value } as any })} />
                         </div>
                       </div>
                     )}

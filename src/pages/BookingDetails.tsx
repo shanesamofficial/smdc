@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
+import Loader from '../components/Loader';
 
 type Booking = {
   id: string;
@@ -68,7 +69,7 @@ const BookingDetails: React.FC = () => {
         </div>
         <div className="bg-white rounded-xl border p-6 shadow-sm">
           <h1 className="text-lg font-semibold mb-4">Booking Details</h1>
-          {loading && <p className="text-sm text-gray-500">Loading…</p>}
+          {loading && <Loader />}
           {error && <p className="text-sm text-red-600">{error}</p>}
           {data && (
             <div className="space-y-4 text-sm">

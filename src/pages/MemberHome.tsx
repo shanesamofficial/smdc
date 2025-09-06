@@ -3,6 +3,7 @@ import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
+import Loader from '../components/Loader';
 
 const MemberHome: React.FC = () => {
   const { user, logout } = useAuth();
@@ -39,7 +40,7 @@ const MemberHome: React.FC = () => {
   if (!user) return <div className="p-8">Not logged in.</div>;
   if (user.role !== 'patient') return <div className="p-8">Accessible only to patients.</div>;
 
-  if (loading) return <div className="p-8 text-sm text-gray-500">Loading…</div>;
+  if (loading) return <Loader className="min-h-[40vh]" />;
   return (
   <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b px-8 py-4 flex items-center gap-6">

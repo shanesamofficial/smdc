@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Plus, LogOut, Moon, Sun, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
+import Loader from '../components/Loader';
 
 const DoctorDashboard: React.FC = () => {
   const { user, patients, createPatient, logout } = useAuth();
@@ -519,7 +520,11 @@ const DoctorDashboard: React.FC = () => {
               <tr><td colSpan={7} className="py-6 text-center text-gray-400 text-xs">No bookings yet</td></tr>
             )}
             {bookingsLoading && (
-              <tr><td colSpan={7} className="py-6 text-center text-gray-400 text-xs">Loading…</td></tr>
+              <tr>
+                <td colSpan={7}>
+                  <Loader />
+                </td>
+              </tr>
             )}
             {bookingsError && (
               <tr><td colSpan={7} className="py-6 text-center text-red-500 text-xs">{bookingsError}</td></tr>
@@ -574,7 +579,11 @@ const DoctorDashboard: React.FC = () => {
               <tr><td colSpan={4} className="py-6 text-center text-gray-400 text-xs">No pending approvals</td></tr>
             )}
             {pendingLoading && (
-              <tr><td colSpan={4} className="py-6 text-center text-gray-400 text-xs">Loading…</td></tr>
+              <tr>
+                <td colSpan={4}>
+                  <Loader />
+                </td>
+              </tr>
             )}
             {pendingError && (
               <tr><td colSpan={4} className="py-6 text-center text-red-500 text-xs">{pendingError}</td></tr>
