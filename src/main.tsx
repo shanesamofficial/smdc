@@ -72,6 +72,12 @@ const FlashToast: React.FC = () => {
       }
     } catch {}
   }, []);
+  // Auto-dismiss after 3 seconds
+  React.useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(null), 3000);
+    return () => clearTimeout(t);
+  }, [msg]);
   if (!msg) return null;
   return (
     <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200]">
