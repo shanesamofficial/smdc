@@ -28,7 +28,7 @@ const Contact: React.FC = () => {
             className="w-full h-full"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            src="https://www.google.com/maps?q=1st%20Floor%2C%20Opera%20Building%2C%20Above%20Akshaya%20Centre%2C%20Kambalakkad%20Main%20Road%2C%20Wayanad%2C%20Kerala%20-%20673122&output=embed"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3907.2946313331554!2d76.07474817622206!3d11.673519288535125!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba67584f0a18c2d%3A0xa7a09f1c1ef8620a!2sDr.%20Shawn&#39;s%20Multispecialty%20Dental%20Clinic!5e0!3m2!1sen!2sin!4v1757144816071!5m2!1sen!2sin"
             allowFullScreen
           ></iframe>
         </div>

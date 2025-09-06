@@ -40,7 +40,7 @@ const MemberHome: React.FC = () => {
   if (!user) return <div className="p-8">Not logged in.</div>;
   if (user.role !== 'patient') return <div className="p-8">Accessible only to patients.</div>;
 
-  if (loading) return <Loader className="min-h-[40vh]" />;
+  if (loading) return <Loader className="min-h-[60vh]" />;
   return (
   <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b px-8 py-4 flex items-center gap-6">
