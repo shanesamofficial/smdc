@@ -7,7 +7,16 @@ import { firebaseAuth, firebaseStorage } from '../firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Placeholder for patient medical data structure
-interface OrthoDetails { nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string }
+interface OrthoDetails { nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string; bracketCode?: string; bracket?: string }
+
+const ORTHO_BRACKETS: { code: string; label: string }[] = [
+  { code: 'OR1', label: 'Metal Bracket Regular' },
+  { code: 'OR2', label: 'Metal Bracket Premium' },
+  { code: 'OR3', label: 'Ceramic Bracket Regular' },
+  { code: 'OR4', label: 'Ceramic Bracket Premium' },
+  { code: 'OR5', label: 'Self Ligating Metal Bracket' },
+  { code: 'OR6', label: 'Self Ligating Ceramic Bracket' },
+];
 interface RecordEntry { id: string; date: string; notes: string; prescription: string; createdAt?: string; amount?: number; type?: 'general'|'orthodontic'; orthodontic?: OrthoDetails|null }
 
 const PatientRecord: React.FC = () => {
@@ -67,8 +76,9 @@ const PatientRecord: React.FC = () => {
   useEffect(()=>{ loadRecords(); }, [id, isDoctor]);
 
   const [draft, setDraft] = useState<{ date:string; notes:string; prescription:string; amount:number; type:'general'|'orthodontic'; orthodontic: OrthoDetails }>({ 
-    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { nextSteps:'', treatment:'', images: [], nextAppointmentDate:'', nextAppointmentNote:'' }
+    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { nextSteps:'', treatment:'', images: [], nextAppointmentDate:'', nextAppointmentNote:'', bracketCode:'', bracket:'' }
   });
+  // ORTHO_BRACKETS available from module scope
   const addRecord = async () => {
     if(!id) return;
     try{
@@ -214,6 +224,19 @@ const PatientRecord: React.FC = () => {
               {draft.type === 'orthodontic' && (
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Bracket</label>
+                    <select className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.bracketCode || ''} onChange={e=>{
+                      const code = e.target.value || '';
+                      const opt = ORTHO_BRACKETS.find(o=>o.code===code);
+                      setDraft({...draft, orthodontic: { ...draft.orthodontic, bracketCode: code, bracket: opt?.label || '' }});
+                    }}>
+                      <option value="">-- Select --</option>
+                      {ORTHO_BRACKETS.map(o=> (
+                        <option key={o.code} value={o.code}>{o.code} – {o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <label className="text-xs text-gray-600 w-24">Next steps</label>
                     <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.nextSteps} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextSteps: e.target.value }})} />
                   </div>
@@ -337,6 +360,9 @@ const RecordItem: React.FC<{
           <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
           {r.type === 'orthodontic' && (
             <div className="mt-2 space-y-1 text-xs text-gray-700">
+              {r.orthodontic?.bracketCode && (
+                <div><span className="font-semibold">Bracket:</span> {r.orthodontic.bracketCode}{r.orthodontic.bracket ? ` – ${r.orthodontic.bracket}` : ''}</div>
+              )}
               {r.orthodontic?.treatment && <div><span className="font-semibold">Treatment:</span> {r.orthodontic.treatment}</div>}
               {r.orthodontic?.nextSteps && <div><span className="font-semibold">Next steps:</span> {r.orthodontic.nextSteps}</div>}
               <div>
@@ -376,6 +402,16 @@ const RecordItem: React.FC<{
           </div>
           {draft.type === 'orthodontic' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <select className="border rounded px-2 py-1" value={draft.orthodontic?.bracketCode || ''} onChange={e=>{
+                const code = e.target.value || '';
+                const opt = ORTHO_BRACKETS.find(o=>o.code===code);
+                setDraft(d=> ({...d, orthodontic: { ...(d.orthodontic||{}), bracketCode: code, bracket: opt?.label || '' }}));
+              }}>
+                <option value="">Bracket – Select</option>
+                {ORTHO_BRACKETS.map(o=> (
+                  <option key={o.code} value={o.code}>{o.code} – {o.label}</option>
+                ))}
+              </select>
               <input className="border rounded px-2 py-1" placeholder="Next steps" value={draft.orthodontic?.nextSteps || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), nextSteps: e.target.value }})} />
               <input className="border rounded px-2 py-1" placeholder="Treatment" value={draft.orthodontic?.treatment || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), treatment: e.target.value }})} />
               <div className="md:col-span-2">
