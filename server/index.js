@@ -617,6 +617,20 @@ app.post('/api/patients/:id/records', requireDoctor, async (req, res) => {
   const id = req.params.id;
   const payload = req.body || {};
   try {
+    // Ensure orthodontic bracket fields are saved on record, and optionally fixed at patient level
+    let bracketCode = payload.orthodontic?.bracketCode || '';
+    let bracket = payload.orthodontic?.bracket || '';
+  let patientDocData = null;
+    try {
+      const pSnap = await db.collection('patients').doc(id).get();
+      if (pSnap.exists) patientDocData = pSnap.data();
+    } catch {}
+    const patientHasFixedBracket = !!(patientDocData && (patientDocData.orthodonticBracketCode || patientDocData.orthodonticBracket));
+  const patientHasEstimated = typeof patientDocData?.orthodonticEstimatedCost === 'number';
+    if (patientHasFixedBracket) {
+      bracketCode = patientDocData.orthodonticBracketCode || bracketCode;
+      bracket = patientDocData.orthodonticBracket || bracket;
+    }
     const record = {
       date: payload.date || new Date().toISOString().slice(0,10),
       notes: payload.notes || '',
@@ -628,10 +642,28 @@ app.post('/api/patients/:id/records', requireDoctor, async (req, res) => {
         treatment: payload.orthodontic?.treatment || '',
         images: Array.isArray(payload.orthodontic?.images) ? payload.orthodontic.images.slice(0,10) : [],
         nextAppointmentDate: payload.orthodontic?.nextAppointmentDate || '',
-        nextAppointmentNote: payload.orthodontic?.nextAppointmentNote || ''
+        nextAppointmentNote: payload.orthodontic?.nextAppointmentNote || '',
+        bracketCode: bracketCode || '',
+        bracket: bracket || '',
+        estimatedTotal: typeof payload.orthodontic?.estimatedTotal === 'number' ? payload.orthodontic.estimatedTotal : (patientDocData?.orthodonticEstimatedCost ?? undefined)
       } : null,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
+    // If patient doesn't have a fixed bracket yet, and we received one, set it now for future records
+    if (!patientHasFixedBracket && record.type === 'orthodontic' && record.orthodontic && record.orthodontic.bracketCode) {
+      try {
+        await db.collection('patients').doc(id).set({
+          orthodonticBracketCode: record.orthodontic.bracketCode,
+          orthodonticBracket: record.orthodontic.bracket
+        }, { merge: true });
+      } catch {}
+    }
+    // Persist estimated total cost at patient level if provided first time
+    if (!patientHasEstimated && record.type === 'orthodontic' && record.orthodontic && typeof record.orthodontic.estimatedTotal === 'number') {
+      try {
+        await db.collection('patients').doc(id).set({ orthodonticEstimatedCost: record.orthodontic.estimatedTotal }, { merge: true });
+      } catch {}
+    }
     const ref = await db.collection('patients').doc(id).collection('records').add(record);
     const snap = await ref.get();
     res.status(201).json({ id: ref.id, ...snap.data(), createdAt: new Date().toISOString() });
@@ -648,6 +680,37 @@ app.put('/api/patients/:pid/records/:rid', requireDoctor, async (req, res) => {
     const body = { ...(req.body || {}) };
     if (Object.prototype.hasOwnProperty.call(body, 'amount')) {
       body.amount = body.amount ? Number(body.amount) : 0;
+    }
+    // Enforce fixed patient bracket if already set; set it on patient if provided first time
+    if (body.type === 'orthodontic' || body.orthodontic) {
+      let patientDocData = null;
+      try {
+        const pSnap = await db.collection('patients').doc(pid).get();
+        if (pSnap.exists) patientDocData = pSnap.data();
+      } catch {}
+      const haveFixed = !!(patientDocData && (patientDocData.orthodonticBracketCode || patientDocData.orthodonticBracket));
+      const haveEstimated = typeof patientDocData?.orthodonticEstimatedCost === 'number';
+      if (haveFixed) {
+        // Override any bracket change to match the fixed one
+        const code = patientDocData.orthodonticBracketCode || '';
+        const label = patientDocData.orthodonticBracket || '';
+        body.orthodontic = { ...(body.orthodontic || {}), bracketCode: code, bracket: label };
+      } else if (body.orthodontic && body.orthodontic.bracketCode) {
+        // First time: persist bracket to patient
+        try {
+          await db.collection('patients').doc(pid).set({
+            orthodonticBracketCode: body.orthodontic.bracketCode,
+            orthodonticBracket: body.orthodontic.bracket || ''
+          }, { merge: true });
+        } catch {}
+      }
+      if (!haveEstimated && typeof body.orthodontic?.estimatedTotal === 'number') {
+        try {
+          await db.collection('patients').doc(pid).set({ orthodonticEstimatedCost: body.orthodontic.estimatedTotal }, { merge: true });
+        } catch {}
+      } else if (haveEstimated) {
+        body.orthodontic = { ...(body.orthodontic || {}), estimatedTotal: patientDocData.orthodonticEstimatedCost };
+      }
     }
     await db.collection('patients').doc(pid).collection('records').doc(rid).set(body, { merge: true });
     const snap = await db.collection('patients').doc(pid).collection('records').doc(rid).get();

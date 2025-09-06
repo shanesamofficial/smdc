@@ -7,7 +7,7 @@ import { firebaseAuth, firebaseStorage } from '../firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Placeholder for patient medical data structure
-interface OrthoDetails { nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string; bracketCode?: string; bracket?: string }
+interface OrthoDetails { nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string; bracketCode?: string; bracket?: string; estimatedTotal?: number }
 
 const ORTHO_BRACKETS: { code: string; label: string }[] = [
   { code: 'OR1', label: 'Metal Bracket Regular' },
@@ -120,6 +120,35 @@ const PatientRecord: React.FC = () => {
   const patient = isDoctor ? patientFromContext : (selfPatient || patientFromContext);
   if (!patient) return <div className="p-8">Patient not found.</div>;
 
+  // Determine fixed orthodontic bracket at patient level (from patient doc, else infer from first ortho record)
+  const fixedBracket = useMemo(() => {
+    const codeFromPatient = (patient as any)?.orthodonticBracketCode as string|undefined;
+    const labelFromPatient = (patient as any)?.orthodonticBracket as string|undefined;
+    if (codeFromPatient || labelFromPatient) return { code: codeFromPatient || '', label: labelFromPatient || '' };
+    const firstOrtho = records.find(r => r.type === 'orthodontic' && r.orthodontic && (r.orthodontic.bracketCode || r.orthodontic.bracket));
+    if (firstOrtho?.orthodontic) return { code: firstOrtho.orthodontic.bracketCode || '', label: firstOrtho.orthodontic.bracket || '' };
+    return null;
+  }, [patient, records]);
+
+  const estimatedCost = useMemo(() => {
+    const fromPatient = (patient as any)?.orthodonticEstimatedCost;
+    if (typeof fromPatient === 'number') return fromPatient;
+    const rec = records.find(r => r.type === 'orthodontic' && r.orthodontic && (r.orthodontic as any).estimatedTotal !== undefined);
+    const val: any = rec?.orthodontic && (rec.orthodontic as any).estimatedTotal;
+    if (typeof val === 'number') return val;
+    const num = val ? Number(val) : NaN;
+    return Number.isFinite(num) ? num : undefined;
+  }, [patient, records]);
+
+  // If adding an orthodontic record and patient has a fixed bracket, prefill and lock it
+  useEffect(() => {
+    if (draft.type === 'orthodontic' && fixedBracket) {
+      if (draft.orthodontic.bracketCode !== fixedBracket.code) {
+        setDraft(d => ({ ...d, orthodontic: { ...d.orthodontic, bracketCode: fixedBracket.code, bracket: fixedBracket.label } }));
+      }
+    }
+  }, [draft.type, fixedBracket]);
+
   return (
   <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b px-8 py-4 flex items-center gap-6">
@@ -178,8 +207,16 @@ const PatientRecord: React.FC = () => {
             <h3 className="font-semibold">History & Prescriptions</h3>
             <div className="flex items-center gap-3">
               {isDoctor && (
-                <div className="text-xs text-gray-600">
-                  Total: <span className="font-semibold text-brand-green">₹{(records.reduce((s,r)=> s + (Number(r.amount)||0), 0)).toFixed(2)}</span>
+                <div className="text-xs text-gray-600 flex items-center gap-2">
+                  <span>
+                    Total paid: <span className="font-semibold text-brand-green">₹{(records.reduce((s,r)=> s + (Number(r.amount)||0), 0)).toFixed(2)}</span>
+                  </span>
+                  {fixedBracket && (
+                    <span className="text-[11px] text-gray-500">• Bracket: <span className="font-medium">{fixedBracket.code}</span>{fixedBracket.label ? ` – ${fixedBracket.label}` : ''}</span>
+                  )}
+                  {typeof estimatedCost === 'number' && (
+                    <span className="text-[11px] text-gray-500">• Estimated: <span className="font-medium">₹{estimatedCost.toFixed(2)}</span></span>
+                  )}
                 </div>
               )}
               <button
@@ -225,7 +262,7 @@ const PatientRecord: React.FC = () => {
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-gray-600 w-24">Bracket</label>
-                    <select className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.bracketCode || ''} onChange={e=>{
+                    <select className="border rounded px-2 py-1 flex-1 disabled:bg-gray-100 disabled:text-gray-500" disabled={!!fixedBracket} value={draft.orthodontic.bracketCode || ''} onChange={e=>{
                       const code = e.target.value || '';
                       const opt = ORTHO_BRACKETS.find(o=>o.code===code);
                       setDraft({...draft, orthodontic: { ...draft.orthodontic, bracketCode: code, bracket: opt?.label || '' }});
@@ -236,6 +273,18 @@ const PatientRecord: React.FC = () => {
                       ))}
                     </select>
                   </div>
+                  {fixedBracket && (
+                    <div className="text-[11px] text-gray-500">Fixed at patient level</div>
+                  )}
+                  {!estimatedCost && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600 w-24">Est. total</label>
+                      <input type="number" min="0" step="0.01" className="border rounded px-2 py-1 flex-1" placeholder="Estimated total cost" value={draft.orthodontic.estimatedTotal ?? ''} onChange={e=>{
+                        const v = e.target.value;
+                        setDraft({...draft, orthodontic: { ...draft.orthodontic, estimatedTotal: v === '' ? undefined : Number(v) || 0 }})
+                      }} />
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-gray-600 w-24">Next steps</label>
                     <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.nextSteps} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextSteps: e.target.value }})} />
@@ -300,6 +349,7 @@ const PatientRecord: React.FC = () => {
                 r={r}
                 isDoctor={isDoctor}
                 patientId={id || selfPatientId || ''}
+                fixedBracket={fixedBracket}
                 onSave={saveRecord}
                 onDelete={deleteRecord}
               />
@@ -320,9 +370,10 @@ const RecordItem: React.FC<{
   r: RecordEntry;
   isDoctor: boolean;
   patientId: string;
+  fixedBracket: { code: string; label: string } | null;
   onSave: (rid: string, patch: Partial<RecordEntry>) => Promise<void> | void;
   onDelete: (rid: string) => Promise<void> | void;
-}> = ({ r, isDoctor, patientId, onSave, onDelete }) => {
+}> = ({ r, isDoctor, patientId, fixedBracket, onSave, onDelete }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<RecordEntry>(r);
 
@@ -347,7 +398,15 @@ const RecordItem: React.FC<{
         <span className="text-xs font-medium tracking-wide text-gray-500">{r.date}</span>
         <div className="flex items-center gap-2">
           {typeof r.amount === 'number' && r.amount > 0 && (
-            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full">₹{Number(r.amount).toFixed(2)}</span>
+            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+              ₹{Number(r.amount).toFixed(2)}
+              {r.type === 'orthodontic' && r.orthodontic?.bracketCode && (
+                <span className="ml-2 text-[10px] text-amber-700/80">{r.orthodontic.bracketCode}</span>
+              )}
+              {r.type === 'orthodontic' && (r.orthodontic as any)?.estimatedTotal !== undefined && (
+                <span className="ml-2 text-[10px] text-amber-700/70">(Est. ₹{Number((r.orthodontic as any).estimatedTotal).toFixed(0)})</span>
+              )}
+            </span>
           )}
           <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded-full">{r.type === 'orthodontic' ? 'ORTHO' : 'VISIT'}</span>
         </div>
@@ -402,7 +461,7 @@ const RecordItem: React.FC<{
           </div>
           {draft.type === 'orthodontic' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <select className="border rounded px-2 py-1" value={draft.orthodontic?.bracketCode || ''} onChange={e=>{
+              <select className="border rounded px-2 py-1 disabled:bg-gray-100 disabled:text-gray-500" disabled={!!fixedBracket} value={draft.orthodontic?.bracketCode || ''} onChange={e=>{
                 const code = e.target.value || '';
                 const opt = ORTHO_BRACKETS.find(o=>o.code===code);
                 setDraft(d=> ({...d, orthodontic: { ...(d.orthodontic||{}), bracketCode: code, bracket: opt?.label || '' }}));
@@ -412,6 +471,9 @@ const RecordItem: React.FC<{
                   <option key={o.code} value={o.code}>{o.code} – {o.label}</option>
                 ))}
               </select>
+              {fixedBracket && (
+                <div className="text-[11px] text-gray-500">Fixed at patient level</div>
+              )}
               <input className="border rounded px-2 py-1" placeholder="Next steps" value={draft.orthodontic?.nextSteps || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), nextSteps: e.target.value }})} />
               <input className="border rounded px-2 py-1" placeholder="Treatment" value={draft.orthodontic?.treatment || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), treatment: e.target.value }})} />
               <div className="md:col-span-2">
