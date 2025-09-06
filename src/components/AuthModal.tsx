@@ -15,7 +15,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login, signup, user, resetPassword } = useAuth();
+  const { login, signup, user, resetPassword, googleLogin } = useAuth();
   const [resetSent, setResetSent] = useState(false);
   const isSignup = mode === 'signup';
   const [closing, setClosing] = useState(false);
@@ -52,8 +52,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
     }
   };
 
-  const googleSignIn = () => {
-    alert('Google Sign-In to be implemented');
+  const googleSignIn = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await googleLogin();
+      if (res && 'pending' in res) {
+        alert(res.message);
+        onClose();
+        return;
+      }
+      onClose();
+    } catch (e: any) {
+      setError(e.message || 'Google login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -68,7 +82,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
           {isSignup ? 'Sign up to manage appointments and more.' : 'Login to continue.'}
         </p>
         {user && <p className="text-xs text-green-600 mb-4">Logged in as {user.email}</p>}
-        <button onClick={googleSignIn} className="w-full border border-gray-300 hover:bg-gray-50 text-sm font-medium rounded-full py-3 flex items-center justify-center gap-2 mb-6">
+  <button onClick={googleSignIn} disabled={loading} className="w-full border border-gray-300 hover:bg-gray-50 disabled:opacity-60 text-sm font-medium rounded-full py-3 flex items-center justify-center gap-2 mb-6">
           <img alt="Google" className="w-5 h-5" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" />
           Continue with Google
         </button>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { firebaseAuth } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 export type Role = 'manager' | 'patient';
 
@@ -31,6 +31,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   doctorLogin: (email: string, password: string) => Promise<void>;
+  googleLogin: () => Promise<void | { pending: boolean; message: string }>;
   signup: (data: { name: string; email: string; password: string }) => Promise<void | { pending: boolean; message: string }>;
   resetPassword: (email:string) => Promise<void>;
   logout: () => void;
@@ -298,6 +299,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const googleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(firebaseAuth, provider);
+    const fbUser = cred.user;
+    if (requireApproval && fbUser) {
+      try {
+        await fetch('/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: fbUser.uid,
+            name: fbUser.displayName || fbUser.email || 'User',
+            email: fbUser.email || ''
+          })
+        });
+      } catch (e) {
+        console.warn('Google register call failed:', e);
+      }
+      // Sign out until approved
+      await firebaseAuth.signOut();
+      return {
+        pending: true,
+        message: 'Account created successfully! Please wait for doctor approval before logging in.'
+      };
+    }
+  };
+
   const logout = () => {
     try { sessionStorage.setItem('flash', 'logged_out'); } catch {}
     firebaseAuth.signOut().catch(()=>{});
@@ -343,6 +371,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loading,
     login,
     doctorLogin,
+  googleLogin,
     signup,
     resetPassword,
     logout,
