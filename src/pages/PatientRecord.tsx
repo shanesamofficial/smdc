@@ -221,9 +221,8 @@ const PatientRecord: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* Mobile summary below patient details */}
-        {isDoctor && (
-          <div className="md:hidden">
+  {/* Mobile summary below patient details (visible to all) */}
+  <div className="md:hidden">
             <div className="bg-white border rounded-xl shadow-sm p-4">
               <h4 className="text-sm font-semibold mb-3">Treatment Summary</h4>
               <div className="space-y-2 text-sm">
@@ -252,7 +251,6 @@ const PatientRecord: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
         <section className="bg-white rounded-xl p-6 border shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">History & Prescriptions</h3>
@@ -391,9 +389,8 @@ const PatientRecord: React.FC = () => {
           </ul>
         </section>
       </main>
-      {/* Floating summary container on the right for doctors */}
-      {isDoctor && (
-        <aside className="hidden md:block fixed right-6 top-28 z-20">
+  {/* Floating summary container on the right (desktop, visible to all) */}
+  <aside className="hidden md:block fixed right-6 top-28 z-20">
           <div className="w-72 bg-white border rounded-xl shadow-lg p-4">
             <h4 className="text-sm font-semibold mb-3">Treatment Summary</h4>
             <div className="space-y-2 text-sm">
@@ -421,8 +418,7 @@ const PatientRecord: React.FC = () => {
               </div>
             </div>
           </div>
-        </aside>
-      )}
+  </aside>
       <Footer />
     </div>
   );
