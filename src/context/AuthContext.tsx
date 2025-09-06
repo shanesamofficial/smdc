@@ -299,10 +299,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
-    firebaseAuth.signOut();
+    try { sessionStorage.setItem('flash', 'logged_out'); } catch {}
+    firebaseAuth.signOut().catch(()=>{});
     setUser(null);
     localStorage.removeItem(LS_CURRENT);
     localStorage.removeItem('doctor_token'); // Clear doctor token on logout
+    // Redirect to home
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   const createPatient = async (payload: { name: string; email: string; age?: number; gender?: string; mobile?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; postalCode?: string; emergencyContactName?: string; emergencyContactPhone?: string; allergies?: string; medicalConditions?: string; medications?: string; notes?: string; }) => {

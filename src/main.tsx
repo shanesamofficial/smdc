@@ -48,16 +48,39 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 const Landing: React.FC = () => (
   <>
     <SiteNav />
-  <div className="scroll-container">
+    {/* Flash toast for logout */}
+    <FlashToast />
+    <div className="scroll-container">
       <Hero />
       <Intro />
-  <Services />
-  <LogoShowcase />
-  <Testimonials />
+      <Services />
+      <LogoShowcase />
+      <Testimonials />
     </div>
-  <Footer />
+    <Footer />
   </>
 );
+
+const FlashToast: React.FC = () => {
+  const [msg, setMsg] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    try {
+      const f = sessionStorage.getItem('flash');
+      if (f === 'logged_out') {
+        setMsg('Logged out');
+        sessionStorage.removeItem('flash');
+      }
+    } catch {}
+  }, []);
+  if (!msg) return null;
+  return (
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200]">
+      <div className="bg-black/80 text-white text-sm px-4 py-2 rounded-full shadow-lg">
+        {msg}
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   console.log('App component rendering...');

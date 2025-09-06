@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Footer from '../components/Footer';
-import SiteNav from '../components/SiteNav';
+// import SiteNav from '../components/SiteNav';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
@@ -44,14 +44,11 @@ const MemberHome: React.FC = () => {
   if (loading) return <Loader className="min-h-[60vh]" />;
   return (
   <div className="min-h-screen flex flex-col bg-gray-50">
-      <SiteNav compact />
+      {/** Removed secondary site navbar to avoid duplicates */}
       <header className="bg-white border-b px-8 py-4 flex items-center gap-6">
         <h1 className="text-lg font-semibold flex-1">Welcome, {user.name}</h1>
-        {error ? (
-          <span className="text-xs text-red-600">{error}</span>
-        ) : (
-          <Link to={patientId ? `/patient/${patientId}` : '#'} className="text-sm text-brand-green font-medium {patientId? '' : 'pointer-events-none opacity-50'}">My Records</Link>
-        )}
+        <Link to="/" className="text-sm text-brand-green font-medium">Home</Link>
+        {patientId && <Link to={`/patient/${patientId}`} className="text-sm text-brand-green font-medium">Records</Link>}
         <button onClick={logout} className="text-sm text-red-600 font-medium">Logout</button>
       </header>
       <main className="flex-1 max-w-4xl mx-auto p-6 md:p-8 space-y-8">

@@ -4,7 +4,7 @@ import { Plus, LogOut, Moon, Sun, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
 import Loader from '../components/Loader';
-import SiteNav from '../components/SiteNav';
+// import SiteNav from '../components/SiteNav';
 
 const DoctorDashboard: React.FC = () => {
   const { user, patients, createPatient, logout } = useAuth();
@@ -597,7 +597,7 @@ const DoctorDashboard: React.FC = () => {
 
   return (
     <div className={dark ? 'min-h-screen flex flex-col bg-[#0f1517] text-gray-100' : 'min-h-screen flex flex-col bg-gray-50 text-gray-900'}>
-      <SiteNav compact />
+  {/** Removed secondary site navbar to avoid duplicates */}
       <header className={dark ? 'bg-[#121c1f] border-b border-gray-700 px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4' : 'bg-white border-b px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4'}>
         {/* Mobile menu button */}
         <button 
@@ -612,7 +612,7 @@ const DoctorDashboard: React.FC = () => {
         <button onClick={()=>setDark(d=>!d)} className={dark? 'w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-600 text-gray-200 hover:bg-gray-700' : 'w-9 h-9 inline-flex items-center justify-center rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100'} aria-label="Toggle dashboard dark mode">
           {dark? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
-        <Link to="/" className="text-sm text-brand-green font-medium">Site</Link>
+  <Link to="/" className="text-sm text-brand-green font-medium">Home</Link>
         <button onClick={logout} className="hidden md:flex items-center gap-2 text-sm font-medium text-red-600 hover:underline"><LogOut className="w-4 h-4"/>Logout</button>
       </header>
 
