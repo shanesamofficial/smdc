@@ -81,7 +81,10 @@ async function requireDoctor(req,res,next){
   if (admin.apps.length) {
     try {
       const decoded = await admin.auth().verifyIdToken(token);
-      if (decoded && decoded.role === 'doctor') {
+  const allowedEmail = (process.env.DOCTOR_EMAIL || '').toLowerCase();
+  const isDoctorByClaim = decoded && decoded.role === 'doctor';
+  const isDoctorByEmail = decoded && decoded.email && allowedEmail && decoded.email.toLowerCase() === allowedEmail;
+  if (isDoctorByClaim || isDoctorByEmail) {
         req.user = { email: decoded.email, role: 'doctor', uid: decoded.uid };
         return next();
       }
@@ -787,17 +790,22 @@ app.get('/api/me/records', requirePatient, async (req, res) => {
 app.get('/api/me/bookings', requirePatient, async (req,res)=>{
   if (!db) return res.json([]);
   try{
-    const snap = await db.collection('bookings').where('email','==', req.user.email).orderBy('createdAt','desc').limit(20).get();
-    const list = snap.docs.map(d => {
+    // Avoid composite index requirement by fetching by email only and sorting in memory
+    const snap = await db.collection('bookings').where('email','==', req.user.email).get();
+    let list = snap.docs.map(d => {
       const data = d.data();
+      const createdAt = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate() : new Date(0);
       return {
         id: d.id,
         date: data.date || '',
         time: data.time || '',
         notes: data.notes || '',
-        createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+        createdAt: createdAt.toISOString()
       };
     });
+    // Sort by createdAt desc and cap to 20
+    list.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    list = list.slice(0, 20);
     res.json(list);
   } catch (err){
     const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
