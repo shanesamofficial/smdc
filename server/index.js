@@ -592,7 +592,19 @@ app.get('/api/patients/:id/records', requireDoctor, async (req, res) => {
   const id = req.params.id;
   try {
     const snap = await db.collection('patients').doc(id).collection('records').orderBy('createdAt','desc').get();
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt && d.data().createdAt.toDate ? d.data().createdAt.toDate().toISOString() : new Date().toISOString() }));
+    const items = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        date: data.date || new Date().toISOString().slice(0,10),
+        notes: data.notes || '',
+        prescription: data.prescription || '',
+        amount: typeof data.amount === 'number' ? data.amount : (data.amount ? Number(data.amount) : 0),
+        type: data.type || 'general',
+        orthodontic: data.orthodontic || null,
+        createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+      };
+    });
     res.json(items);
   } catch (err) {
     const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';
@@ -605,12 +617,21 @@ app.post('/api/patients/:id/records', requireDoctor, async (req, res) => {
   const id = req.params.id;
   const payload = req.body || {};
   try {
-    const ref = await db.collection('patients').doc(id).collection('records').add({
+    const record = {
       date: payload.date || new Date().toISOString().slice(0,10),
       notes: payload.notes || '',
       prescription: payload.prescription || '',
+      amount: payload.amount ? Number(payload.amount) : 0,
+      type: payload.type || 'general',
+      orthodontic: payload.type === 'orthodontic' ? {
+        stage: payload.orthodontic?.stage || '',
+        appliances: payload.orthodontic?.appliances || '',
+        adjustments: payload.orthodontic?.adjustments || '',
+        nextSteps: payload.orthodontic?.nextSteps || ''
+      } : null,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    const ref = await db.collection('patients').doc(id).collection('records').add(record);
     const snap = await ref.get();
     res.status(201).json({ id: ref.id, ...snap.data(), createdAt: new Date().toISOString() });
   } catch (err) {
@@ -623,7 +644,11 @@ app.put('/api/patients/:pid/records/:rid', requireDoctor, async (req, res) => {
   if (!db) return res.status(503).json({ error:'Database disabled'});
   const { pid, rid } = req.params;
   try {
-    await db.collection('patients').doc(pid).collection('records').doc(rid).set(req.body || {}, { merge: true });
+    const body = { ...(req.body || {}) };
+    if (Object.prototype.hasOwnProperty.call(body, 'amount')) {
+      body.amount = body.amount ? Number(body.amount) : 0;
+    }
+    await db.collection('patients').doc(pid).collection('records').doc(rid).set(body, { merge: true });
     const snap = await db.collection('patients').doc(pid).collection('records').doc(rid).get();
     res.json({ id: rid, ...snap.data() });
   } catch (err) {
@@ -665,7 +690,19 @@ app.get('/api/me/records', requirePatient, async (req, res) => {
     if (snap.empty) return res.json([]);
     const doc = snap.docs[0];
     const recs = await db.collection('patients').doc(doc.id).collection('records').orderBy('createdAt','desc').get();
-    const items = recs.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt && d.data().createdAt.toDate ? d.data().createdAt.toDate().toISOString() : new Date().toISOString() }));
+    const items = recs.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        date: data.date || new Date().toISOString().slice(0,10),
+        notes: data.notes || '',
+        prescription: data.prescription || '',
+        amount: typeof data.amount === 'number' ? data.amount : (data.amount ? Number(data.amount) : 0),
+        type: data.type || 'general',
+        orthodontic: data.orthodontic || null,
+        createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()
+      };
+    });
     return res.json(items);
   } catch (err) {
     const msg = (err && (err.message || err.errorInfo?.message)) || 'Unknown error';

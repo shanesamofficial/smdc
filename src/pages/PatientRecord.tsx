@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { firebaseAuth } from '../firebase';
 
 // Placeholder for patient medical data structure
-interface RecordEntry { id: string; date: string; notes: string; prescription: string; createdAt?: string }
+interface OrthoDetails { stage?: string; appliances?: string; adjustments?: string; nextSteps?: string }
+interface RecordEntry { id: string; date: string; notes: string; prescription: string; createdAt?: string; amount?: number; type?: 'general'|'orthodontic'; orthodontic?: OrthoDetails|null }
 
 const PatientRecord: React.FC = () => {
   const { id } = useParams();
@@ -53,16 +54,18 @@ const PatientRecord: React.FC = () => {
 
   useEffect(()=>{ loadRecords(); }, [id, isDoctor]);
 
-  const [draft, setDraft] = useState({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'' });
+  const [draft, setDraft] = useState<{ date:string; notes:string; prescription:string; amount:number; type:'general'|'orthodontic'; orthodontic: OrthoDetails }>({ 
+    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { stage:'', appliances:'', adjustments:'', nextSteps:'' }
+  });
   const addRecord = async () => {
     if(!id) return;
     try{
       const headers = await getAuthHeader();
-      const res = await fetch(`/api/patients/${id}/records`, { method:'POST', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(draft) });
+  const res = await fetch(`/api/patients/${id}/records`, { method:'POST', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(draft) });
       if(!res.ok) throw new Error('Failed to add record');
       const created = await res.json();
       setRecords(list => [created, ...list]);
-      setDraft({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'' });
+  setDraft({ date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type:'general', orthodontic: { stage:'', appliances:'', adjustments:'', nextSteps:'' } });
     }catch(e:any){ alert(e.message); }
   };
   const saveRecord = async (rid: string, patch: Partial<RecordEntry>) => {
@@ -147,25 +150,74 @@ const PatientRecord: React.FC = () => {
         <section className="bg-white rounded-xl p-6 border shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">History & Prescriptions</h3>
-            <button
+            <div className="flex items-center gap-3">
+              {isDoctor && (
+                <div className="text-xs text-gray-600">
+                  Total: <span className="font-semibold text-brand-green">₹{(records.reduce((s,r)=> s + (Number(r.amount)||0), 0)).toFixed(2)}</span>
+                </div>
+              )}
+              <button
               type="button"
               onClick={loadRecords}
               disabled={loading || (!isDoctor && !firebaseAuth.currentUser)}
               className={`text-xs font-medium px-3 py-1 rounded-full border ${loading? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'} border-gray-300 text-gray-700`}
               aria-busy={loading}
-            >
-              {loading ? 'Refreshing…' : 'Refresh'}
-            </button>
+              >
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
           </div>
           {!isDoctor && !firebaseAuth.currentUser && (
             <p className="text-xs text-red-600 mb-3">Access denied. Please log in to view your records.</p>
           )}
           {isDoctor && (
-            <div className="mb-4 p-3 border rounded-lg bg-gray-50 text-sm flex flex-wrap gap-2">
-              <input type="date" className="border rounded px-2 py-1" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})} />
-              <input className="border rounded px-2 py-1 w-56" placeholder="Notes" value={draft.notes} onChange={e=>setDraft({...draft, notes:e.target.value})} />
-              <input className="border rounded px-2 py-1 w-56" placeholder="Prescription" value={draft.prescription} onChange={e=>setDraft({...draft, prescription:e.target.value})} />
-              <button onClick={addRecord} className="text-brand-green font-medium">Add</button>
+            <div className="mb-4 p-4 border rounded-lg bg-gray-50 text-sm grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-600 w-20">Date</label>
+                <input type="date" className="border rounded px-2 py-1 flex-1" value={draft.date} onChange={e=>setDraft({...draft, date:e.target.value})} />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-600 w-20">Type</label>
+                <select className="border rounded px-2 py-1 flex-1" value={draft.type} onChange={e=>setDraft({...draft, type: e.target.value as any})}>
+                  <option value="general">General</option>
+                  <option value="orthodontic">Orthodontic</option>
+                </select>
+              </div>
+              <div className="md:col-span-2 flex items-center gap-2">
+                <label className="text-xs text-gray-600 w-20">Notes</label>
+                <input className="border rounded px-2 py-1 flex-1" placeholder="Notes" value={draft.notes} onChange={e=>setDraft({...draft, notes:e.target.value})} />
+              </div>
+              <div className="md:col-span-2 flex items-center gap-2">
+                <label className="text-xs text-gray-600 w-20">Prescription</label>
+                <input className="border rounded px-2 py-1 flex-1" placeholder="Prescription" value={draft.prescription} onChange={e=>setDraft({...draft, prescription:e.target.value})} />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-600 w-20">Amount</label>
+                <input type="number" min="0" step="0.01" className="border rounded px-2 py-1 flex-1" value={draft.amount} onChange={e=>setDraft({...draft, amount: Number(e.target.value) || 0})} />
+              </div>
+              {draft.type === 'orthodontic' && (
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Stage</label>
+                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.stage} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, stage: e.target.value }})} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Appliances</label>
+                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.appliances} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, appliances: e.target.value }})} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Adjustments</label>
+                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.adjustments} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, adjustments: e.target.value }})} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Next steps</label>
+                    <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.nextSteps} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextSteps: e.target.value }})} />
+                  </div>
+                </div>
+              )}
+              <div className="md:col-span-2 flex justify-end">
+                <button onClick={addRecord} className="text-white bg-brand-green px-4 py-1.5 rounded-full text-sm font-medium">Add Record</button>
+              </div>
             </div>
           )}
           {loading && <p className="text-xs text-gray-500">Loading…</p>}
@@ -175,7 +227,12 @@ const PatientRecord: React.FC = () => {
               <li key={r.id} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium tracking-wide text-gray-500">{r.date}</span>
-                  <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded-full">VISIT</span>
+                  <div className="flex items-center gap-2">
+                    {typeof r.amount === 'number' && r.amount > 0 && (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full">₹{Number(r.amount).toFixed(2)}</span>
+                    )}
+                    <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded-full">{r.type === 'orthodontic' ? 'ORTHO' : 'VISIT'}</span>
+                  </div>
                 </div>
                 {!isDoctor && (
                   <>
@@ -189,7 +246,20 @@ const PatientRecord: React.FC = () => {
                       <input type="date" className="border rounded px-2 py-1" value={r.date} onChange={e=>saveRecord(r.id, { date: e.target.value })} />
                       <input className="border rounded px-2 py-1 w-56" value={r.notes} onChange={e=>saveRecord(r.id, { notes: e.target.value })} />
                       <input className="border rounded px-2 py-1 w-56" value={r.prescription} onChange={e=>saveRecord(r.id, { prescription: e.target.value })} />
+                      <select className="border rounded px-2 py-1" value={r.type || 'general'} onChange={e=>saveRecord(r.id, { type: e.target.value as any })}>
+                        <option value="general">General</option>
+                        <option value="orthodontic">Orthodontic</option>
+                      </select>
+                      <input type="number" className="border rounded px-2 py-1 w-28" placeholder="Amount" value={r.amount ?? 0} onChange={e=>saveRecord(r.id, { amount: Number(e.target.value) || 0 })} />
                     </div>
+                    {r.type === 'orthodontic' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <input className="border rounded px-2 py-1" placeholder="Stage" value={r.orthodontic?.stage || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, stage: e.target.value } as any })} />
+                        <input className="border rounded px-2 py-1" placeholder="Appliances" value={r.orthodontic?.appliances || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, appliances: e.target.value } as any })} />
+                        <input className="border rounded px-2 py-1" placeholder="Adjustments" value={r.orthodontic?.adjustments || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, adjustments: e.target.value } as any })} />
+                        <input className="border rounded px-2 py-1" placeholder="Next steps" value={r.orthodontic?.nextSteps || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextSteps: e.target.value } as any })} />
+                      </div>
+                    )}
                     <div>
                       <button onClick={()=>deleteRecord(r.id)} className="text-red-600 text-xs">Delete</button>
                     </div>
