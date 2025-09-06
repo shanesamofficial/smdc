@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { firebaseAuth } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, linkWithCredential } from 'firebase/auth';
 
 export type Role = 'manager' | 'patient';
 
@@ -31,7 +31,11 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   doctorLogin: (email: string, password: string) => Promise<void>;
-  googleLogin: () => Promise<void | { pending: boolean; message: string }>;
+  googleLogin: () => Promise<
+    | void
+    | { pending: boolean; message: string }
+    | { linkRequired: true; email?: string }
+  >;
   signup: (data: { name: string; email: string; password: string }) => Promise<void | { pending: boolean; message: string }>;
   resetPassword: (email:string) => Promise<void>;
   logout: () => void;
@@ -68,6 +72,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const requireApproval = (import.meta.env.VITE_REQUIRE_APPROVAL || 'false') === 'true';
+  const PENDING_LINK_KEY = 'pending_oauth_link';
 
   const persistUsers = (next: User[]) => {
     setUsers(next);
@@ -239,6 +244,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(firebaseAuth, email, password);
+    // If there is a pending OAuth credential to link, try linking now
+    try {
+      const raw = sessionStorage.getItem(PENDING_LINK_KEY);
+      if (raw && firebaseAuth.currentUser) {
+        const data = JSON.parse(raw) as { provider: string; idToken?: string; accessToken?: string; email?: string };
+        if (!data.email || data.email.toLowerCase() === (firebaseAuth.currentUser.email || '').toLowerCase()) {
+          if (data.provider === 'google.com') {
+            const cred = GoogleAuthProvider.credential(data.idToken || undefined, data.accessToken || undefined);
+            try {
+              await linkWithCredential(firebaseAuth.currentUser, cred);
+              console.log('Linked Google provider to existing account');
+            } catch (e) {
+              console.warn('Link with Google failed (may be already linked):', e);
+            }
+          }
+          sessionStorage.removeItem(PENDING_LINK_KEY);
+        }
+      }
+    } catch (e) {
+      console.warn('Pending OAuth link handling failed:', e);
+    }
   };
 
   const doctorLogin = async (email: string, password: string) => {
@@ -301,28 +327,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const googleLogin = async () => {
     const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(firebaseAuth, provider);
-    const fbUser = cred.user;
-    if (requireApproval && fbUser) {
-      try {
-        await fetch('/api/users/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid: fbUser.uid,
-            name: fbUser.displayName || fbUser.email || 'User',
-            email: fbUser.email || ''
-          })
-        });
-      } catch (e) {
-        console.warn('Google register call failed:', e);
+    try {
+      const cred = await signInWithPopup(firebaseAuth, provider);
+      const fbUser = cred.user;
+      if (requireApproval && fbUser) {
+        try {
+          await fetch('/api/users/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: fbUser.uid,
+              name: fbUser.displayName || fbUser.email || 'User',
+              email: fbUser.email || ''
+            })
+          });
+        } catch (e) {
+          console.warn('Google register call failed:', e);
+        }
+        // Sign out until approved
+        await firebaseAuth.signOut();
+        return {
+          pending: true,
+          message: 'Account created successfully! Please wait for doctor approval before logging in.'
+        };
       }
-      // Sign out until approved
-      await firebaseAuth.signOut();
-      return {
-        pending: true,
-        message: 'Account created successfully! Please wait for doctor approval before logging in.'
-      };
+    } catch (err: any) {
+      // If the account exists with a different credential (e.g., email/password), guide linking
+      if (err?.code === 'auth/account-exists-with-different-credential') {
+        try {
+          const email = err?.customData?.email as string | undefined;
+          const gcred = GoogleAuthProvider.credentialFromError(err);
+          if (gcred) {
+            const payload = {
+              provider: 'google.com',
+              idToken: (gcred as any).idToken as string | undefined,
+              accessToken: (gcred as any).accessToken as string | undefined,
+              email,
+            };
+            sessionStorage.setItem(PENDING_LINK_KEY, JSON.stringify(payload));
+            return { linkRequired: true, email } as const;
+          }
+        } catch (e) {
+          console.warn('Failed to persist pending Google credential', e);
+        }
+      }
+      throw err;
     }
   };
 

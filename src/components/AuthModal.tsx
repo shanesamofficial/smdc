@@ -62,9 +62,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
         onClose();
         return;
       }
+      if (res && 'linkRequired' in res) {
+        // Prefill email if provided and switch to login mode for linking
+        if (res.email) setEmail(res.email);
+        if (isSignup) onSwitch('login');
+        setError('This email already has a password account. Please login to link Google.');
+        return;
+      }
       onClose();
     } catch (e: any) {
-      setError(e.message || 'Google login failed');
+      // Friendly message for existing-account scenario
+      const msg = typeof e?.message === 'string' && e.message.includes('different-credential')
+        ? 'Account exists with the same email. Please login with password to link Google.'
+        : (e.message || 'Google login failed');
+      setError(msg);
     } finally {
       setLoading(false);
     }
