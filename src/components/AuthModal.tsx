@@ -15,7 +15,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login, signup, user, resetPassword, googleLogin } = useAuth();
+  const { login, signup, user, resetPassword } = useAuth();
   const [resetSent, setResetSent] = useState(false);
   const isSignup = mode === 'signup';
   const [closing, setClosing] = useState(false);
@@ -52,34 +52,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
     }
   };
 
-  const googleSignIn = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await googleLogin();
-      if (res && 'pending' in res) {
-        alert(res.message);
-        onClose();
-        return;
-      }
-      if (res && 'linkRequired' in res) {
-        // Prefill email if provided and switch to login mode for linking
-        if (res.email) setEmail(res.email);
-        if (isSignup) onSwitch('login');
-        setError('This email already has a password account. Please login to link Google.');
-        return;
-      }
-      onClose();
-    } catch (e: any) {
-      // Friendly message for existing-account scenario
-      const msg = typeof e?.message === 'string' && e.message.includes('different-credential')
-        ? 'Account exists with the same email. Please login with password to link Google.'
-        : (e.message || 'Google login failed');
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -92,16 +64,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, mode, onClose, onSwitch }) 
         <p className="text-sm text-gray-500 mb-6">
           {isSignup ? 'Sign up to manage appointments and more.' : 'Login to continue.'}
         </p>
-        {user && <p className="text-xs text-green-600 mb-4">Logged in as {user.email}</p>}
-  <button onClick={googleSignIn} disabled={loading} className="w-full border border-gray-300 hover:bg-gray-50 disabled:opacity-60 text-sm font-medium rounded-full py-3 flex items-center justify-center gap-2 mb-6">
-          <img alt="Google" className="w-5 h-5" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" />
-          Continue with Google
-        </button>
-        <div className="flex items-center gap-4 mb-6">
-          <span className="h-px bg-gray-200 flex-1" />
-          <span className="text-[11px] tracking-wide text-gray-400 font-medium">OR</span>
-          <span className="h-px bg-gray-200 flex-1" />
-        </div>
+  {user && <p className="text-xs text-green-600 mb-6">Logged in as {user.email}</p>}
 
   <form onSubmit={submit} className="space-y-4">
           {isSignup && (
