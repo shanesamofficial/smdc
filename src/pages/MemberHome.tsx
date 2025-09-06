@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Footer from '../components/Footer';
+import SiteNav from '../components/SiteNav';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
@@ -43,6 +44,7 @@ const MemberHome: React.FC = () => {
   if (loading) return <Loader className="min-h-[60vh]" />;
   return (
   <div className="min-h-screen flex flex-col bg-gray-50">
+      <SiteNav compact />
       <header className="bg-white border-b px-8 py-4 flex items-center gap-6">
         <h1 className="text-lg font-semibold flex-1">Welcome, {user.name}</h1>
         {error ? (

@@ -4,6 +4,7 @@ import { Plus, LogOut, Moon, Sun, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { firebaseAuth } from '../firebase';
 import Loader from '../components/Loader';
+import SiteNav from '../components/SiteNav';
 
 const DoctorDashboard: React.FC = () => {
   const { user, patients, createPatient, logout } = useAuth();
@@ -596,6 +597,7 @@ const DoctorDashboard: React.FC = () => {
 
   return (
     <div className={dark ? 'min-h-screen flex flex-col bg-[#0f1517] text-gray-100' : 'min-h-screen flex flex-col bg-gray-50 text-gray-900'}>
+      <SiteNav compact />
       <header className={dark ? 'bg-[#121c1f] border-b border-gray-700 px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4' : 'bg-white border-b px-4 md:px-6 lg:px-8 py-4 flex items-center gap-4'}>
         {/* Mobile menu button */}
         <button 
