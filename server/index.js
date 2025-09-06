@@ -627,7 +627,11 @@ app.post('/api/patients/:id/records', requireDoctor, async (req, res) => {
         stage: payload.orthodontic?.stage || '',
         appliances: payload.orthodontic?.appliances || '',
         adjustments: payload.orthodontic?.adjustments || '',
-        nextSteps: payload.orthodontic?.nextSteps || ''
+        nextSteps: payload.orthodontic?.nextSteps || '',
+        treatment: payload.orthodontic?.treatment || '',
+        images: Array.isArray(payload.orthodontic?.images) ? payload.orthodontic.images.slice(0,10) : [],
+        nextAppointmentDate: payload.orthodontic?.nextAppointmentDate || '',
+        nextAppointmentNote: payload.orthodontic?.nextAppointmentNote || ''
       } : null,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };

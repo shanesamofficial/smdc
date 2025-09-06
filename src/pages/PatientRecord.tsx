@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { firebaseAuth } from '../firebase';
 
 // Placeholder for patient medical data structure
-interface OrthoDetails { stage?: string; appliances?: string; adjustments?: string; nextSteps?: string }
+interface OrthoDetails { stage?: string; appliances?: string; adjustments?: string; nextSteps?: string; treatment?: string; images?: string[]; nextAppointmentDate?: string; nextAppointmentNote?: string }
 interface RecordEntry { id: string; date: string; notes: string; prescription: string; createdAt?: string; amount?: number; type?: 'general'|'orthodontic'; orthodontic?: OrthoDetails|null }
 
 const PatientRecord: React.FC = () => {
@@ -55,7 +55,7 @@ const PatientRecord: React.FC = () => {
   useEffect(()=>{ loadRecords(); }, [id, isDoctor]);
 
   const [draft, setDraft] = useState<{ date:string; notes:string; prescription:string; amount:number; type:'general'|'orthodontic'; orthodontic: OrthoDetails }>({ 
-    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { stage:'', appliances:'', adjustments:'', nextSteps:'' }
+    date: new Date().toISOString().slice(0,10), notes:'', prescription:'', amount: 0, type: 'general', orthodontic: { stage:'', appliances:'', adjustments:'', nextSteps:'', treatment:'', images: [], nextAppointmentDate:'', nextAppointmentNote:'' }
   });
   const addRecord = async () => {
     if(!id) return;
@@ -213,6 +213,40 @@ const PatientRecord: React.FC = () => {
                     <label className="text-xs text-gray-600 w-24">Next steps</label>
                     <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.nextSteps} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextSteps: e.target.value }})} />
                   </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Treatment</label>
+                    <input className="border rounded px-2 py-1 flex-1" placeholder="Treatment done" value={draft.orthodontic.treatment || ''} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, treatment: e.target.value }})} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Image URL</label>
+                    <input className="border rounded px-2 py-1 flex-1" placeholder="https://..." value={''} onChange={()=>{}} />
+                    <button type="button" className="text-xs text-brand-green" onClick={()=>{
+                      const url = prompt('Enter image URL (uploaded to Firebase Storage)');
+                      if(url){ setDraft({...draft, orthodontic: { ...draft.orthodontic, images: [...(draft.orthodontic.images||[]), url] }}) }
+                    }}>Add</button>
+                  </div>
+                  <div className="md:col-span-2">
+                    {!!(draft.orthodontic.images && draft.orthodontic.images.length) && (
+                      <div className="flex gap-3 flex-wrap">
+                        {draft.orthodontic.images!.map((u,idx)=> (
+                          <div key={idx} className="relative w-24 h-24 border rounded overflow-hidden">
+                            <img src={u} alt="ortho" className="object-cover w-full h-full" />
+                            <button type="button" className="absolute top-1 right-1 text-[10px] bg-white/80 px-1 rounded" onClick={()=>{
+                              const next = [...(draft.orthodontic.images||[])]; next.splice(idx,1); setDraft({...draft, orthodontic: { ...draft.orthodontic, images: next }})
+                            }}>x</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Next Appt</label>
+                    <input type="date" className="border rounded px-2 py-1" min={new Date().toISOString().slice(0,10)} value={draft.orthodontic.nextAppointmentDate || ''} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextAppointmentDate: e.target.value }})} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Appt Notes</label>
+                    <input className="border rounded px-2 py-1 flex-1" placeholder="Appointment notes" value={draft.orthodontic.nextAppointmentNote || ''} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextAppointmentNote: e.target.value }})} />
+                  </div>
                 </div>
               )}
               <div className="md:col-span-2 flex justify-end">
@@ -238,6 +272,24 @@ const PatientRecord: React.FC = () => {
                   <>
                     <p className="text-sm mb-2">{r.notes}</p>
                     <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
+                    {r.type === 'orthodontic' && (
+                      <div className="mt-2 space-y-1 text-xs text-gray-700">
+                        {r.orthodontic?.treatment && <div><span className="font-semibold">Treatment:</span> {r.orthodontic.treatment}</div>}
+                        {r.orthodontic?.nextSteps && <div><span className="font-semibold">Next steps:</span> {r.orthodontic.nextSteps}</div>}
+                        {r.orthodontic?.nextAppointmentDate && (
+                          <div><span className="font-semibold">Next appointment:</span> {r.orthodontic.nextAppointmentDate} {r.orthodontic.nextAppointmentNote ? `– ${r.orthodontic.nextAppointmentNote}` : ''}</div>
+                        )}
+                        {!!(r.orthodontic?.images && r.orthodontic.images.length) && (
+                          <div className="flex gap-2 flex-wrap mt-2">
+                            {r.orthodontic!.images!.map((u, i)=> (
+                              <a key={i} href={u} target="_blank" rel="noreferrer" className="w-16 h-16 border rounded overflow-hidden block">
+                                <img src={u} className="object-cover w-full h-full" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
                 {isDoctor && (
@@ -258,6 +310,44 @@ const PatientRecord: React.FC = () => {
                         <input className="border rounded px-2 py-1" placeholder="Appliances" value={r.orthodontic?.appliances || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, appliances: e.target.value } as any })} />
                         <input className="border rounded px-2 py-1" placeholder="Adjustments" value={r.orthodontic?.adjustments || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, adjustments: e.target.value } as any })} />
                         <input className="border rounded px-2 py-1" placeholder="Next steps" value={r.orthodontic?.nextSteps || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextSteps: e.target.value } as any })} />
+                        <input className="border rounded px-2 py-1 md:col-span-2" placeholder="Treatment" value={r.orthodontic?.treatment || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, treatment: e.target.value } as any })} />
+                        <div className="md:col-span-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <input className="border rounded px-2 py-1 flex-1" placeholder="Add image URL (uploaded)" onKeyDown={(e)=>{
+                              if (e.key === 'Enter') {
+                                const input = e.target as HTMLInputElement;
+                                const val = input.value.trim();
+                                if (val) {
+                                  saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: [...(r.orthodontic?.images || []), val] } as any });
+                                  input.value='';
+                                }
+                              }
+                            }} />
+                            <button type="button" className="text-xs text-brand-green" onClick={()=>{
+                              const url = prompt('Enter image URL');
+                              if(url){ saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: [...(r.orthodontic?.images||[]), url] } as any }); }
+                            }}>Add</button>
+                          </div>
+                          {!!(r.orthodontic?.images && r.orthodontic.images.length) && (
+                            <div className="flex gap-2 flex-wrap">
+                              {r.orthodontic.images.map((u, i)=> (
+                                <div key={i} className="relative w-20 h-20 border rounded overflow-hidden">
+                                  <a href={u} target="_blank" rel="noreferrer">
+                                    <img src={u} className="object-cover w-full h-full" />
+                                  </a>
+                                  <button type="button" className="absolute top-1 right-1 text-[10px] bg-white/80 px-1 rounded" onClick={()=>{
+                                    const next = [...(r.orthodontic?.images||[])]; next.splice(i,1);
+                                    saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: next } as any });
+                                  }}>x</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="date" className="border rounded px-2 py-1" min={new Date().toISOString().slice(0,10)} value={r.orthodontic?.nextAppointmentDate || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextAppointmentDate: e.target.value } as any })} />
+                          <input className="border rounded px-2 py-1 flex-1" placeholder="Appointment notes" value={r.orthodontic?.nextAppointmentNote || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextAppointmentNote: e.target.value } as any })} />
+                        </div>
                       </div>
                     )}
                     <div>

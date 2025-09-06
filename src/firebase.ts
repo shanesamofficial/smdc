@@ -4,6 +4,7 @@
 // Optional: VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-key',
@@ -15,10 +16,16 @@ const firebaseConfig = {
 };
 
 let firebaseAuth: any = null;
+let firebaseStorage: any = null;
 
 try {
   const app = initializeApp(firebaseConfig);
   firebaseAuth = getAuth(app);
+  try {
+    firebaseStorage = getStorage(app);
+  } catch (e) {
+    firebaseStorage = null;
+  }
 } catch (error) {
   console.warn('Firebase initialization failed:', error);
   // Create a mock auth object to prevent crashes
@@ -31,6 +38,7 @@ try {
     sendPasswordResetEmail: () => Promise.reject(new Error('Firebase not configured')),
     updateProfile: () => Promise.reject(new Error('Firebase not configured')),
   };
+  firebaseStorage = null;
 }
 
-export { firebaseAuth };
+export { firebaseAuth, firebaseStorage };
