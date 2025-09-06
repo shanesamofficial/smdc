@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { DOCTORS } from '../constants/doctors';
 import Footer from '../components/Footer';
 import Loader from '../components/Loader';
 import { useParams, Link } from 'react-router-dom';
@@ -124,18 +125,10 @@ const PatientRecord: React.FC = () => {
     }catch(e:any){ alert(e.message); }
   };
 
-  if (!user) return <div className="p-8">Not logged in.</div>;
-  // For patients, ensure they only access their own record (compare against selfPatientId when loaded)
-  if (user.role === 'patient') {
-    if (loading) return <Loader className="min-h-[40vh]" />;
-    if (id && selfPatientId && id !== selfPatientId) return <div className="p-8">Access denied.</div>;
-  }
-
+  // Resolve active patient and compute derived values before any early returns to keep hooks order stable
   const patient = isDoctor ? patientFromContext : (selfPatient || patientFromContext);
-  if (!patient) return <div className="p-8">Patient not found.</div>;
-
-  // Determine fixed orthodontic bracket at patient level (from patient doc, else infer from first ortho record)
   const fixedBracket = useMemo(() => {
+    if (!patient) return null;
     const codeFromPatient = (patient as any)?.orthodonticBracketCode as string|undefined;
     const labelFromPatient = (patient as any)?.orthodonticBracket as string|undefined;
     if (codeFromPatient || labelFromPatient) return { code: codeFromPatient || '', label: labelFromPatient || '' };
@@ -145,6 +138,7 @@ const PatientRecord: React.FC = () => {
   }, [patient, records]);
 
   const estimatedCost = useMemo(() => {
+    if (!patient) return undefined;
     const fromPatient = (patient as any)?.orthodonticEstimatedCost;
     if (typeof fromPatient === 'number') return fromPatient;
     const rec = records.find(r => r.type === 'orthodontic' && r.orthodontic && (r.orthodontic as any).estimatedTotal !== undefined);
@@ -165,6 +159,14 @@ const PatientRecord: React.FC = () => {
       }
     }
   }, [draft.type, fixedBracket]);
+
+  if (!user) return <div className="p-8">Not logged in.</div>;
+  // For patients, ensure they only access their own record (compare against selfPatientId when loaded)
+  if (user.role === 'patient') {
+    if (loading) return <Loader className="min-h-[40vh]" />;
+    if (id && selfPatientId && id !== selfPatientId) return <div className="p-8">Access denied.</div>;
+  }
+  if (!patient) return <div className="p-8">Patient not found.</div>;
 
   return (
   <div className="min-h-screen flex flex-col bg-gray-50">
@@ -219,6 +221,38 @@ const PatientRecord: React.FC = () => {
             </div>
           </div>
         </div>
+        {/* Mobile summary below patient details */}
+        {isDoctor && (
+          <div className="md:hidden">
+            <div className="bg-white border rounded-xl shadow-sm p-4">
+              <h4 className="text-sm font-semibold mb-3">Treatment Summary</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Total paid</span>
+                  <span className="font-semibold text-brand-green">₹{totalPaid.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Doctor</span>
+                  <span className="font-medium">{assignedDoctorSummary || '—'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Estimated</span>
+                  <span className="font-medium">{typeof estimatedCost==='number' ? `₹${estimatedCost.toFixed(2)}` : '—'}</span>
+                </div>
+                {typeof estimatedCost==='number' && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">Remaining</span>
+                    <span className="font-medium">₹{Math.max(0, estimatedCost - totalPaid).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="pt-2 border-t">
+                  <div className="text-xs text-gray-500">Bracket</div>
+                  <div className="text-sm">{fixedBracket ? (<span><span className="font-medium">{fixedBracket.code}</span>{fixedBracket.label ? ` – ${fixedBracket.label}` : ''}</span>) : '—'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <section className="bg-white rounded-xl p-6 border shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">History & Prescriptions</h3>
@@ -266,10 +300,9 @@ const PatientRecord: React.FC = () => {
                 <label className="text-xs text-gray-600 w-20">Doctor</label>
                 <select className="border rounded px-2 py-1 flex-1" value={draft.assignedDoctorName || ''} onChange={e=>setDraft({...draft, assignedDoctorName: e.target.value})}>
                   <option value="">-- Select --</option>
-                  <option>Dr. Shawn</option>
-                  <option>Dr. Sarah</option>
-                  <option>Dr. Alan</option>
-                  <option>Dr. Priya</option>
+                  {DOCTORS.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
                 </select>
               </div>
               {draft.type === 'orthodontic' && (
@@ -491,10 +524,9 @@ const RecordItem: React.FC<{
             <input type="number" className="border rounded px-2 py-1 w-28" placeholder="Amount" value={draft.amount ?? 0} onChange={e=>setDraft({...draft, amount: Number(e.target.value) || 0})} />
             <select className="border rounded px-2 py-1" value={draft.assignedDoctorName || ''} onChange={e=>setDraft({...draft, assignedDoctorName: e.target.value})}>
               <option value="">Doctor – Select</option>
-              <option>Dr. Shawn</option>
-              <option>Dr. Sarah</option>
-              <option>Dr. Alan</option>
-              <option>Dr. Priya</option>
+              {DOCTORS.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
           {draft.type === 'orthodontic' && (

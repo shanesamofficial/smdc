@@ -20,6 +20,8 @@ import SiteNav from './components/SiteNav';
 import Booking from './pages/Booking';
 import AdminSetup from './pages/AdminSetup';
 import BookingDetails from './pages/BookingDetails';
+import ErrorPage from './pages/ErrorPage';
+import NotFound from './pages/NotFound';
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean; error?: Error}> {
   constructor(props: {children: React.ReactNode}) {
@@ -37,14 +39,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-          <h1>Something went wrong.</h1>
-          <details style={{ whiteSpace: 'pre-wrap' }}>
-            {this.state.error && this.state.error.toString()}
-          </details>
-        </div>
-      );
+  return <ErrorPage error={this.state.error} />;
     }
     return this.props.children;
   }
@@ -84,6 +79,7 @@ const App: React.FC = () => {
             <Route path="/admin-setup" element={<AdminSetup />} />
             <Route path="/booking/:id" element={<BookingDetails />} />
             <Route path="/manager" element={<Navigate to="/doctor" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
