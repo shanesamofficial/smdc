@@ -28,9 +28,19 @@ const Contact: React.FC = () => {
             className="w-full h-full"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3936.180178926179!2d76.130!3d11.685!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba60fdc9d1b9e1f%3A0x0000000000000000!2sKambalakkad%2C%20Kerala!5e0!3m2!1sen!2sin!4v0000000000000"
+            src="https://www.google.com/maps?q=1st%20Floor%2C%20Opera%20Building%2C%20Above%20Akshaya%20Centre%2C%20Kambalakkad%20Main%20Road%2C%20Wayanad%2C%20Kerala%20-%20673122&output=embed"
             allowFullScreen
           ></iframe>
+        </div>
+        <div className="mt-3">
+          <a
+            href="https://share.google/TFRkdg6cKJaDMn7ut"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block bg-brand-green text-white rounded-full px-4 py-2 text-sm font-medium"
+          >
+            Open in Google Maps
+          </a>
         </div>
       </section>
   <Footer />

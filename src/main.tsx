@@ -99,4 +99,11 @@ if (!rootElement) {
   console.log('Root element found, creating app...');
   createRoot(rootElement).render(<App />);
   console.log('App rendered successfully');
+  // Hide initial preloader once app mounts
+  const pre = document.getElementById('preloader');
+  if (pre) {
+    pre.style.opacity = '0';
+    // Give the transition time, then remove from DOM
+    setTimeout(() => pre.remove(), 300);
+  }
 }

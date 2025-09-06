@@ -13,7 +13,9 @@ interface RecordEntry { id: string; date: string; notes: string; prescription: s
 const PatientRecord: React.FC = () => {
   const { id } = useParams();
   const { patients, user } = useAuth();
-  const patient = useMemo(()=> patients.find(p => p.id === id), [patients, id]);
+  const patientFromContext = useMemo(()=> patients.find(p => p.id === id), [patients, id]);
+  const [selfPatient, setSelfPatient] = useState<any|null>(null);
+  const [selfPatientId, setSelfPatientId] = useState<string|undefined>(undefined);
   const [records, setRecords] = useState<RecordEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
@@ -46,9 +48,17 @@ const PatientRecord: React.FC = () => {
         // Patient: read-only records
         const idt = await firebaseAuth.currentUser?.getIdToken();
         if(!idt){ setLoading(false); return; }
-        const res = await fetch('/api/me/records', { headers: { Authorization: `Bearer ${idt}` }});
-        if (!res.ok) throw new Error('Failed to load records');
-        setRecords(await res.json());
+        const [resMe, resRecs] = await Promise.all([
+          fetch('/api/me/patient', { headers: { Authorization: `Bearer ${idt}` }}),
+          fetch('/api/me/records', { headers: { Authorization: `Bearer ${idt}` }})
+        ]);
+        if (resMe.ok) {
+          const me = await resMe.json();
+          setSelfPatient(me);
+          setSelfPatientId(me.id);
+        }
+        if (!resRecs.ok) throw new Error('Failed to load records');
+        setRecords(await resRecs.json());
       }
     }catch(e:any){ setError(e.message); }
     finally{ setLoading(false); }
@@ -91,8 +101,13 @@ const PatientRecord: React.FC = () => {
   };
 
   if (!user) return <div className="p-8">Not logged in.</div>;
-  // Patient can only view their own, manager can view any
-  if (user.role === 'patient' && user.id !== id) return <div className="p-8">Access denied.</div>;
+  // For patients, ensure they only access their own record (compare against selfPatientId when loaded)
+  if (user.role === 'patient') {
+    if (loading) return <Loader className="min-h-[40vh]" />;
+    if (id && selfPatientId && id !== selfPatientId) return <div className="p-8">Access denied.</div>;
+  }
+
+  const patient = isDoctor ? patientFromContext : (selfPatient || patientFromContext);
   if (!patient) return <div className="p-8">Patient not found.</div>;
 
   return (
@@ -257,105 +272,14 @@ const PatientRecord: React.FC = () => {
           {error && <p className="text-xs text-red-600">{error}</p>}
           <ul className="space-y-4">
             {records.map(r => (
-              <li key={r.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium tracking-wide text-gray-500">{r.date}</span>
-                  <div className="flex items-center gap-2">
-                    {typeof r.amount === 'number' && r.amount > 0 && (
-                      <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full">₹{Number(r.amount).toFixed(2)}</span>
-                    )}
-                    <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded-full">{r.type === 'orthodontic' ? 'ORTHO' : 'VISIT'}</span>
-                  </div>
-                </div>
-                {!isDoctor && (
-                  <>
-                    <p className="text-sm mb-2">{r.notes}</p>
-                    <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
-                    {r.type === 'orthodontic' && (
-                      <div className="mt-2 space-y-1 text-xs text-gray-700">
-                        {r.orthodontic?.treatment && <div><span className="font-semibold">Treatment:</span> {r.orthodontic.treatment}</div>}
-                        {r.orthodontic?.nextSteps && <div><span className="font-semibold">Next steps:</span> {r.orthodontic.nextSteps}</div>}
-                        {r.orthodontic?.nextAppointmentDate && (
-                          <div><span className="font-semibold">Next appointment:</span> {r.orthodontic.nextAppointmentDate} {r.orthodontic.nextAppointmentNote ? `– ${r.orthodontic.nextAppointmentNote}` : ''}</div>
-                        )}
-                        {!!(r.orthodontic?.images && r.orthodontic.images.length) && (
-                          <div className="flex gap-2 flex-wrap mt-2">
-                            {r.orthodontic!.images!.map((u, i)=> (
-                              <a key={i} href={u} target="_blank" rel="noreferrer" className="w-16 h-16 border rounded overflow-hidden block">
-                                <img src={u} className="object-cover w-full h-full" />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-                {isDoctor && (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex gap-2 flex-wrap">
-                      <input type="date" className="border rounded px-2 py-1" value={r.date} onChange={e=>saveRecord(r.id, { date: e.target.value })} />
-                      <input className="border rounded px-2 py-1 w-56" value={r.notes} onChange={e=>saveRecord(r.id, { notes: e.target.value })} />
-                      <input className="border rounded px-2 py-1 w-56" value={r.prescription} onChange={e=>saveRecord(r.id, { prescription: e.target.value })} />
-                      <select className="border rounded px-2 py-1" value={r.type || 'general'} onChange={e=>saveRecord(r.id, { type: e.target.value as any })}>
-                        <option value="general">General</option>
-                        <option value="orthodontic">Orthodontic</option>
-                      </select>
-                      <input type="number" className="border rounded px-2 py-1 w-28" placeholder="Amount" value={r.amount ?? 0} onChange={e=>saveRecord(r.id, { amount: Number(e.target.value) || 0 })} />
-                    </div>
-                    {r.type === 'orthodontic' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <input className="border rounded px-2 py-1" placeholder="Next steps" value={r.orthodontic?.nextSteps || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextSteps: e.target.value } as any })} />
-                        <input className="border rounded px-2 py-1" placeholder="Treatment" value={r.orthodontic?.treatment || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, treatment: e.target.value } as any })} />
-                        <div className="md:col-span-2">
-                          <div className="flex items-center gap-2 mb-2">
-                            <button type="button" className="text-xs text-brand-green" onClick={async ()=>{
-                              if (!firebaseStorage) { alert('Storage not configured'); return; }
-                              const input = document.createElement('input');
-                              input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-                              input.onchange = async ()=>{
-                                if(!input.files || !input.files.length) return;
-                                const prefix = `patients/${id || 'unknown'}/records/${r.id}`;
-                                const urls: string[] = [];
-                                for (const f of Array.from(input.files)){
-                                  const path = `${prefix}/${Date.now()}_${f.name}`;
-                                  const sref = storageRef(firebaseStorage, path);
-                                  await uploadBytes(sref, f, { contentType: f.type });
-                                  const url = await getDownloadURL(sref);
-                                  urls.push(url);
-                                }
-                                saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: [...(r.orthodontic?.images || []), ...urls] } as any });
-                              };
-                              input.click();
-                            }}>Upload Images</button>
-                          </div>
-                          {!!(r.orthodontic?.images && r.orthodontic.images.length) && (
-                            <div className="flex gap-2 flex-wrap">
-                              {r.orthodontic.images.map((u, i)=> (
-                                <div key={i} className="relative w-20 h-20 border rounded overflow-hidden">
-                                  <a href={u} target="_blank" rel="noreferrer">
-                                    <img src={u} className="object-cover w-full h-full" />
-                                  </a>
-                                  <button type="button" className="absolute top-1 right-1 text-[10px] bg-white/80 px-1 rounded" onClick={()=>{
-                                    const next = [...(r.orthodontic?.images||[])]; next.splice(i,1);
-                                    saveRecord(r.id, { orthodontic: { ...r.orthodontic, images: next } as any });
-                                  }}>x</button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="date" className="border rounded px-2 py-1" min={new Date().toISOString().slice(0,10)} value={r.orthodontic?.nextAppointmentDate || ''} onChange={e=>saveRecord(r.id, { orthodontic: { ...r.orthodontic, nextAppointmentDate: e.target.value } as any })} />
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <button onClick={()=>deleteRecord(r.id)} className="text-red-600 text-xs">Delete</button>
-                    </div>
-                  </div>
-                )}
-              </li>
+              <RecordItem
+                key={r.id}
+                r={r}
+                isDoctor={isDoctor}
+                patientId={id || selfPatientId || ''}
+                onSave={saveRecord}
+                onDelete={deleteRecord}
+              />
             ))}
             {records.length === 0 && !loading && (
               <li className="text-xs text-gray-400">No records yet.</li>
@@ -365,6 +289,154 @@ const PatientRecord: React.FC = () => {
       </main>
       <Footer />
     </div>
+  );
+};
+
+// Per-record component to support read-only by default and edit on demand
+const RecordItem: React.FC<{
+  r: RecordEntry;
+  isDoctor: boolean;
+  patientId: string;
+  onSave: (rid: string, patch: Partial<RecordEntry>) => Promise<void> | void;
+  onDelete: (rid: string) => Promise<void> | void;
+}> = ({ r, isDoctor, patientId, onSave, onDelete }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<RecordEntry>(r);
+
+  useEffect(()=>{ setDraft(r); }, [r.id]);
+
+  const handleSave = async () => {
+    const patch: Partial<RecordEntry> = {
+      date: draft.date,
+      notes: draft.notes,
+      prescription: draft.prescription,
+      amount: draft.amount,
+      type: draft.type,
+      orthodontic: draft.type === 'orthodontic' ? (draft.orthodontic || {}) : undefined,
+    };
+    await onSave(r.id, patch);
+    setEditing(false);
+  };
+
+  return (
+    <li className="border rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium tracking-wide text-gray-500">{r.date}</span>
+        <div className="flex items-center gap-2">
+          {typeof r.amount === 'number' && r.amount > 0 && (
+            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full">₹{Number(r.amount).toFixed(2)}</span>
+          )}
+          <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded-full">{r.type === 'orthodontic' ? 'ORTHO' : 'VISIT'}</span>
+        </div>
+      </div>
+
+      {/* Read-only view for patients and for doctors by default */}
+      {(!isDoctor || !editing) && (
+        <>
+          <p className="text-sm mb-2">{r.notes}</p>
+          <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
+          {r.type === 'orthodontic' && (
+            <div className="mt-2 space-y-1 text-xs text-gray-700">
+              {r.orthodontic?.treatment && <div><span className="font-semibold">Treatment:</span> {r.orthodontic.treatment}</div>}
+              {r.orthodontic?.nextSteps && <div><span className="font-semibold">Next steps:</span> {r.orthodontic.nextSteps}</div>}
+              <div>
+                <span className="font-semibold">Next appointment:</span>{' '}
+                {r.orthodontic?.nextAppointmentDate ? (
+                  <>{r.orthodontic.nextAppointmentDate} {r.orthodontic.nextAppointmentNote ? `– ${r.orthodontic.nextAppointmentNote}` : ''}</>
+                ) : (
+                  <span className="italic text-gray-500">to be assigned</span>
+                )}
+              </div>
+              {!!(r.orthodontic?.images && r.orthodontic.images.length) && (
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {r.orthodontic!.images!.map((u, i)=> (
+                    <a key={i} href={u} target="_blank" rel="noreferrer" className="w-16 h-16 border rounded overflow-hidden block">
+                      <img src={u} className="object-cover w-full h-full" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Edit mode for doctors */}
+      {isDoctor && editing && (
+        <div className="space-y-2 text-sm">
+          <div className="flex gap-2 flex-wrap">
+            <input type="date" className="border rounded px-2 py-1" value={draft.date} onChange={e=>setDraft({...draft, date: e.target.value})} />
+            <input className="border rounded px-2 py-1 w-56" value={draft.notes} onChange={e=>setDraft({...draft, notes: e.target.value})} />
+            <input className="border rounded px-2 py-1 w-56" value={draft.prescription} onChange={e=>setDraft({...draft, prescription: e.target.value})} />
+            <select className="border rounded px-2 py-1" value={draft.type || 'general'} onChange={e=>setDraft({...draft, type: e.target.value as any})}>
+              <option value="general">General</option>
+              <option value="orthodontic">Orthodontic</option>
+            </select>
+            <input type="number" className="border rounded px-2 py-1 w-28" placeholder="Amount" value={draft.amount ?? 0} onChange={e=>setDraft({...draft, amount: Number(e.target.value) || 0})} />
+          </div>
+          {draft.type === 'orthodontic' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <input className="border rounded px-2 py-1" placeholder="Next steps" value={draft.orthodontic?.nextSteps || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), nextSteps: e.target.value }})} />
+              <input className="border rounded px-2 py-1" placeholder="Treatment" value={draft.orthodontic?.treatment || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), treatment: e.target.value }})} />
+              <div className="md:col-span-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <button type="button" className="text-xs text-brand-green" onClick={async ()=>{
+                    if (!firebaseStorage) { alert('Storage not configured'); return; }
+                    const input = document.createElement('input');
+                    input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                    input.onchange = async ()=>{
+                      if(!input.files || !input.files.length) return;
+                      const prefix = `patients/${patientId || 'unknown'}/records/${r.id}`;
+                      const urls: string[] = [];
+                      for (const f of Array.from(input.files)){
+                        const path = `${prefix}/${Date.now()}_${f.name}`;
+                        const sref = storageRef(firebaseStorage, path);
+                        await uploadBytes(sref, f, { contentType: f.type });
+                        const url = await getDownloadURL(sref);
+                        urls.push(url);
+                      }
+                      const nextImages = [...(draft.orthodontic?.images || []), ...urls];
+                      setDraft(d => ({...d, orthodontic: { ...(d.orthodontic||{}), images: nextImages }}));
+                    };
+                    input.click();
+                  }}>Upload Images</button>
+                </div>
+                {!!(draft.orthodontic?.images && draft.orthodontic.images.length) && (
+                  <div className="flex gap-2 flex-wrap">
+                    {draft.orthodontic.images.map((u, i)=> (
+                      <div key={i} className="relative w-20 h-20 border rounded overflow-hidden">
+                        <a href={u} target="_blank" rel="noreferrer">
+                          <img src={u} className="object-cover w-full h-full" />
+                        </a>
+                        <button type="button" className="absolute top-1 right-1 text-[10px] bg-white/80 px-1 rounded" onClick={()=>{
+                          const next = [...(draft.orthodontic?.images||[])]; next.splice(i,1);
+                          setDraft(d => ({...d, orthodontic: { ...(d.orthodontic||{}), images: next }}));
+                        }}>x</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="date" className="border rounded px-2 py-1" min={new Date().toISOString().slice(0,10)} value={draft.orthodontic?.nextAppointmentDate || ''} onChange={e=>setDraft({...draft, orthodontic: { ...(draft.orthodontic||{}), nextAppointmentDate: e.target.value }})} />
+              </div>
+            </div>
+          )}
+          <div className="space-x-3">
+            <button onClick={handleSave} className="text-green-700 text-xs font-medium">Save</button>
+            <button onClick={()=>{ setEditing(false); setDraft(r); }} className="text-gray-600 text-xs">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Doctor actions */}
+      {isDoctor && !editing && (
+        <div className="mt-2 space-x-3">
+          <button onClick={()=>setEditing(true)} className="text-blue-600 text-xs">Edit</button>
+          <button onClick={()=>onDelete(r.id)} className="text-red-600 text-xs">Delete</button>
+        </div>
+      )}
+    </li>
   );
 };
 
