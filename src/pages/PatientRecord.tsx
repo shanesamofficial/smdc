@@ -83,15 +83,7 @@ const PatientRecord: React.FC = () => {
     if(!id) return;
     try{
       const headers = await getAuthHeader();
-      // Strip bracket fields during initial add
-      const payload = { ...draft, orthodontic: draft.type === 'orthodontic' ? {
-        nextSteps: draft.orthodontic.nextSteps,
-        treatment: draft.orthodontic.treatment,
-        images: draft.orthodontic.images,
-        nextAppointmentDate: draft.orthodontic.nextAppointmentDate,
-        nextAppointmentNote: draft.orthodontic.nextAppointmentNote,
-      } : undefined };
-      const res = await fetch(`/api/patients/${id}/records`, { method:'POST', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(payload) });
+  const res = await fetch(`/api/patients/${id}/records`, { method:'POST', headers: { 'Content-Type':'application/json', ...headers }, body: JSON.stringify(draft) });
       if(!res.ok) throw new Error('Failed to add record');
       const created = await res.json();
       setRecords(list => [created, ...list]);
@@ -232,6 +224,19 @@ const PatientRecord: React.FC = () => {
               {draft.type === 'orthodontic' && (
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600 w-24">Bracket</label>
+                    <select className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.bracketCode || ''} onChange={e=>{
+                      const code = e.target.value || '';
+                      const opt = ORTHO_BRACKETS.find(o=>o.code===code);
+                      setDraft({...draft, orthodontic: { ...draft.orthodontic, bracketCode: code, bracket: opt?.label || '' }});
+                    }}>
+                      <option value="">-- Select --</option>
+                      {ORTHO_BRACKETS.map(o=> (
+                        <option key={o.code} value={o.code}>{o.code} – {o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <label className="text-xs text-gray-600 w-24">Next steps</label>
                     <input className="border rounded px-2 py-1 flex-1" value={draft.orthodontic.nextSteps} onChange={e=>setDraft({...draft, orthodontic: { ...draft.orthodontic, nextSteps: e.target.value }})} />
                   </div>
@@ -355,12 +360,8 @@ const RecordItem: React.FC<{
           <p className="text-xs text-gray-600"><span className="font-semibold">Prescription:</span> {r.prescription}</p>
           {r.type === 'orthodontic' && (
             <div className="mt-2 space-y-1 text-xs text-gray-700">
-              {r.orthodontic?.bracketCode ? (
+              {r.orthodontic?.bracketCode && (
                 <div><span className="font-semibold">Bracket:</span> {r.orthodontic.bracketCode}{r.orthodontic.bracket ? ` – ${r.orthodontic.bracket}` : ''}</div>
-              ) : (
-                <div>
-                  <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full">Bracket: not set</span>
-                </div>
               )}
               {r.orthodontic?.treatment && <div><span className="font-semibold">Treatment:</span> {r.orthodontic.treatment}</div>}
               {r.orthodontic?.nextSteps && <div><span className="font-semibold">Next steps:</span> {r.orthodontic.nextSteps}</div>}
